@@ -67,10 +67,19 @@ namespace Game.Entities.Participants.Parts
                 return;
 
             _lastSide = side;
+            string arrowed = Arrow(side, _participantName);
             _alert.text = level == ProximityLevel.Stop
-                ? $"! STOP\n{_participantName} {side}"
-                : $"! {_participantName} {side}";
+                ? $"<b>STOP</b>\n{arrowed}"
+                : arrowed;
         }
+
+        private static string Arrow(string side, string name) => side switch
+        {
+            "left" => $"<<  {name} on the left",
+            "right" => $"{name} on the right  >>",
+            "behind" => $"{name} behind you",
+            _ => $"{name} ahead",
+        };
 
         public void Hide()
         {

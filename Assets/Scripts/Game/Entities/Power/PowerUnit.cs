@@ -21,6 +21,7 @@ namespace Game.Entities.Power
         [SerializeField] private Color _barOffColor = new(0.08f, 0.1f, 0.12f);
         [SerializeField] private Color _barOnColor = new(0.25f, 1f, 0.45f);
         [SerializeField, Min(0.05f)] private float _barFillInterval = 0.18f;
+        [SerializeField] private Game.Entities.Environment.SparkBurst _insertSparks;
 
         private MaterialPropertyBlock _block;
         private AudioSource _audio;
@@ -105,6 +106,8 @@ namespace Game.Entities.Power
             _untilNextBar = _barFillInterval;
             battery.ConfirmInsertion(true);
             _audio.PlayOneShot(_powerUpClip, 0.6f);
+            if (_insertSparks != null)
+                _insertSparks.Play();
         }
 
         private void HandleRemoved(SelectExitEventArgs args)

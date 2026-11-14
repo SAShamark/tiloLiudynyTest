@@ -71,5 +71,30 @@ namespace Game.Entities.Player
             foreach (var controller in _haptics)
                 controller.SendHapticImpulse(amplitude, duration);
         }
+
+        /// <summary>Vibrates each hand with its own strength, e.g. stronger on the side a danger is on.</summary>
+        public void SendHaptics(float left, float right, float duration)
+        {
+            foreach (var controller in _haptics)
+            {
+                bool isLeft = IsLeft(controller.transform);
+                float amplitude = isLeft ? left : right;
+                if (amplitude > 0.01f)
+                    controller.SendHapticImpulse(amplitude, duration);
+            }
+        }
+
+        private static bool IsLeft(Transform controller)
+        {
+            for (var t = controller; t != null; t = t.parent)
+            {
+                if (t.name.Contains("Left"))
+                    return true;
+                if (t.name.Contains("Right"))
+                    return false;
+            }
+
+            return false;
+        }
     }
 }

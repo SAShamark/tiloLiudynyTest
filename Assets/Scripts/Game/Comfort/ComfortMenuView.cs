@@ -27,6 +27,16 @@ namespace Game.Comfort
             public Image Background;
         }
 
+        /// <summary>Two-button on/off switch (e.g. "Stand" / "Walk").</summary>
+        [Serializable]
+        private sealed class ToggleRow
+        {
+            public Button OnButton;
+            public Image OnBackground;
+            public Button OffButton;
+            public Image OffBackground;
+        }
+
         [SerializeField] private Canvas _canvas;
         [SerializeField] private ModeButton[] _modeButtons;
         [SerializeField] private Slider _vignetteSlider;
@@ -41,6 +51,19 @@ namespace Game.Comfort
         [SerializeField] private string _smoothFormat = "Turn speed  {0:0}°/s";
         [SerializeField] private Vector2 _snapRange = new(15f, 90f);
         [SerializeField] private Vector2 _smoothRange = new(30f, 180f);
+
+        [Header("Participant & safety")]
+        [Tooltip("On = participant stands idle, Off = participant walks the route.")]
+        [SerializeField] private ToggleRow _participantIdle;
+        [Tooltip("On = proximity warnings also during stick movement.")]
+        [SerializeField] private ToggleRow _stickWarnings;
+        [Tooltip("On = show the player's own body.")]
+        [SerializeField] private ToggleRow _showBody;
+
+        [Header("Height")]
+        [SerializeField] private Slider _heightSlider;
+        [SerializeField] private TMP_Text _heightLabel;
+        [SerializeField] private string _heightFormat = "Height  {0:+0;-0;0} cm";
 
         [SerializeField] private Button _returnButton;
         [SerializeField] private Button _closeButton;
@@ -57,6 +80,11 @@ namespace Game.Comfort
         public event Action<float> OnVignetteChanged;
         public event Action<TurnMode> OnTurnModeSelected;
         public event Action<float> OnTurnAmountChanged;
+        public event Action<bool> OnParticipantIdleSelected;
+        public event Action<bool> OnStickWarningsSelected;
+        public event Action<bool> OnShowBodySelected;
+        /// <summary>Height offset in centimetres.</summary>
+        public event Action<float> OnHeightChanged;
         public event Action OnReturnClicked;
         public event Action OnCloseClicked;
 
@@ -82,6 +110,14 @@ namespace Game.Comfort
             _turnSlider.onValueChanged.AddListener(HandleTurnAmountChanged);
             _returnButton.onClick.AddListener(HandleReturnClicked);
             _closeButton.onClick.AddListener(HandleCloseClicked);
+            Bind(_participantIdle, value => OnParticipantIdleSelected?.Invoke(value));
+            Bind(_stickWarnings, value => OnStickWarningsSelected?.Invoke(value));
+            Bind(_showBody, value => OnShowBodySelected?.Invoke(value));
+            if (_heightSlider != null)
+            {
+                _heightSlider.wholeNumbers = true;
+                _heightSlider.onValueChanged.AddListener(HandleHeightChanged);
+            }
 
             ShowVignetteStrength(initialVignette);
             gameObject.SetActive(false);
@@ -117,6 +153,50 @@ namespace Game.Comfort
             ShowTurnAmount(amount);
         }
 
+        public void ShowParticipantIdle(bool idle) => ShowToggle(_participantIdle, idle);
+
+        public void ShowStickWarnings(bool enabled) => ShowToggle(_stickWarnings, enabled);
+
+        public void ShowBody(bool visible) => ShowToggle(_showBody, visible);
+
+        public void ShowHeight(float centimetres)
+        {
+            if (_heightSlider != null)
+                _heightSlider.SetValueWithoutNotify(centimetres);
+            if (_heightLabel != null)
+                _heightLabel.text = string.Format(_heightFormat, centimetres);
+        }
+
+        private void HandleHeightChanged(float centimetres)
+        {
+            ShowHeight(centimetres);
+            OnHeightChanged?.Invoke(centimetres);
+        }
+
+        private static void Bind(ToggleRow row, Action<bool> onSelected)
+        {
+            if (row?.OnButton == null || row.OffButton == null)
+                return;
+
+            row.OnButton.onClick.AddListener(() => onSelected(true));
+            row.OffButton.onClick.AddListener(() => onSelected(false));
+        }
+
+        private static void Unbind(ToggleRow row)
+        {
+            row?.OnButton?.onClick.RemoveAllListeners();
+            row?.OffButton?.onClick.RemoveAllListeners();
+        }
+
+        private void ShowToggle(ToggleRow row, bool on)
+        {
+            if (row?.OnBackground == null || row.OffBackground == null)
+                return;
+
+            row.OnBackground.color = on ? _selectedColor : _normalColor;
+            row.OffBackground.color = on ? _normalColor : _selectedColor;
+        }
+
         private void ShowTurnAmount(float amount) =>
             _turnLabel.text = string.Format(_turnMode == TurnMode.Snap ? _snapFormat : _smoothFormat, amount);
 
@@ -131,6 +211,11 @@ namespace Game.Comfort
             _turnSlider.onValueChanged.RemoveListener(HandleTurnAmountChanged);
             _returnButton.onClick.RemoveListener(HandleReturnClicked);
             _closeButton.onClick.RemoveListener(HandleCloseClicked);
+            Unbind(_participantIdle);
+            Unbind(_stickWarnings);
+            Unbind(_showBody);
+            if (_heightSlider != null)
+                _heightSlider.onValueChanged.RemoveListener(HandleHeightChanged);
         }
 
         private void HandleVignetteChanged(float value) => OnVignetteChanged?.Invoke(value);

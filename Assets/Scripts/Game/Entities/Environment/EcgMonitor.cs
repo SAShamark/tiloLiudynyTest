@@ -18,6 +18,7 @@ namespace Game.Entities.Environment
         [SerializeField] private TMP_Text _rateLabel;
         [SerializeField] private string _idleText = "-- BPM";
         [SerializeField] private string _activeFormat = "{0:0} BPM";
+        [SerializeField] private string _shockText = "SHOCK!";
 
         private LineRenderer _line;
         private Vector3[] _points;
@@ -26,12 +27,24 @@ namespace Game.Entities.Environment
         private float _beatTime;
         private bool _active;
         private HeartStationControl _station;
+        private float _shockLeft;
+        private float _shockLabelLeft;
 
         public void Init(HeartStationControl station)
         {
             _station = station;
             _station.OnStateChanged += HandleStateChanged;
+            _station.OnShocked += HandleShocked;
             HandleStateChanged(_station.State);
+        }
+
+        // A defibrillator shock: a tall spike, a brief wobble, and "SHOCK" on the readout.
+        private void HandleShocked()
+        {
+            _shockLeft = 0.35f;
+            _shockLabelLeft = 1.2f;
+            if (_rateLabel != null)
+                _rateLabel.text = _shockText;
         }
 
         private void Awake()
@@ -48,8 +61,11 @@ namespace Game.Entities.Environment
 
         private void OnDestroy()
         {
-            if (_station != null)
-                _station.OnStateChanged -= HandleStateChanged;
+            if (_station == null)
+                return;
+
+            _station.OnStateChanged -= HandleStateChanged;
+            _station.OnShocked -= HandleShocked;
         }
 
         private void Update()
@@ -60,7 +76,22 @@ namespace Game.Entities.Environment
             {
                 _cursor -= step;
                 _beatTime += step;
-                Shift(_active ? Waveform(_beatTime % _beatPeriod / _beatPeriod) : 0f);
+                float value = _active ? Waveform(_beatTime % _beatPeriod / _beatPeriod) : 0f;
+                if (_shockLeft > 0f)
+                {
+                    float t = 1f - _shockLeft / 0.35f;
+                    value = Mathf.Sin(t * Mathf.PI * 7f) * (1f - t) * 1.8f;
+                    _shockLeft -= step;
+                }
+
+                Shift(value);
+            }
+
+            if (_shockLabelLeft > 0f)
+            {
+                _shockLabelLeft -= Time.deltaTime;
+                if (_shockLabelLeft <= 0f)
+                    HandleStateChanged(_station.State);
             }
 
             for (int i = 0; i < _samples; i++)

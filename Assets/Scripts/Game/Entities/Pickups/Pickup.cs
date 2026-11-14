@@ -54,6 +54,13 @@ namespace Game.Entities.Pickups
 
         public void SetHome(Vector3 position, Quaternion rotation) => _recovery.SetHome(position, rotation);
 
+        /// <summary>Vibrates the controller that is holding (or last grabbed) this item.</summary>
+        public void SendHaptics(float amplitude, float duration)
+        {
+            if (_lastController != null)
+                _lastController.SendHapticImpulse(amplitude, duration);
+        }
+
         public void ConfirmInsertion(bool playHaptics)
         {
             if (playHaptics && _lastController != null)

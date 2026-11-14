@@ -25,6 +25,8 @@ namespace Game.Entities.Station
 
         private Func<bool> _canPull;
         private Func<bool> _isActive;
+        private Func<bool> _highlight;
+        private Func<bool> _running;
         private Action _onPull;
         private Vector3 _grabStart;
         private bool _fired;
@@ -47,6 +49,16 @@ namespace Game.Entities.Station
             ApplyLamp(_isActive());
         }
 
+        /// <summary>
+        /// Splits the indicators from the lever position: <paramref name="highlight"/> lights the lever when
+        /// pulling it would start something, <paramref name="running"/> drives the green/red lamp.
+        /// </summary>
+        public void SetIndicators(Func<bool> highlight, Func<bool> running)
+        {
+            _highlight = highlight;
+            _running = running;
+        }
+
         private void OnDestroy()
         {
             if (_knob != null)
@@ -59,8 +71,9 @@ namespace Game.Entities.Station
                 return;
 
             bool ready = _canPull();
-            if (ready != _ready)
-                ApplyReady(ready);
+            bool highlight = _highlight != null ? _highlight() : ready;
+            if (highlight != _ready)
+                ApplyReady(highlight);
 
             bool active = _isActive();
             Vector3 path = _endPoint.position - _startPoint.position;
@@ -82,7 +95,7 @@ namespace Game.Entities.Station
 
             _progress = Mathf.MoveTowards(_progress, target, _slideSpeed * Time.deltaTime / Mathf.Max(travel, 0.001f));
             _pivot.position = Vector3.Lerp(_startPoint.position, _endPoint.position, _progress);
-            ApplyLamp(_isActive());
+            ApplyLamp(_running != null ? _running() : active);
         }
 
         private void HandleGrabbed(SelectEnterEventArgs args)

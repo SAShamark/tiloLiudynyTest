@@ -1,5 +1,6 @@
 using Game.Comfort;
 using Game.Entities.Environment;
+using Game.Entities.Lab;
 using Game.Entities.Organs;
 using Game.Entities.Participants;
 using Game.Entities.Player;
@@ -18,6 +19,7 @@ namespace Game
     {
         [SerializeField] private XROrigin _xrOrigin;
         [SerializeField] private ControllerHandView _controllerHands;
+        [SerializeField] private PlayerBodyView _playerBody;
         [SerializeField] private ComfortMenu _comfortMenu;
         [SerializeField] private ParticipantControl _participant;
         [SerializeField] private HeartStationControl _heartStation;
@@ -29,6 +31,7 @@ namespace Game
         [SerializeField] private FlaskButtonPanel _flaskButtons;
         [SerializeField] private FlaskDispenser _flaskDispenser;
         [SerializeField] private EcgMonitor[] _ecgMonitors;
+        [SerializeField] private Defibrillator _defibrillator;
 
         private PlayerRig _playerRig;
         private SafetyController _safetyController;
@@ -57,6 +60,13 @@ namespace Game
         private void InitializeComfort()
         {
             _comfortMenu.Init(_playerRig);
+
+            if (_playerBody == null)
+                return;
+
+            _playerBody.Init(_playerRig, _controllerHands);
+            _playerBody.SetVisible(_comfortMenu.ShowBody);
+            _comfortMenu.OnShowBodyChanged += _playerBody.SetVisible;
         }
 
         private void InitializeParticipants()
@@ -66,7 +76,10 @@ namespace Game
             if (_comfortMenu.Locomotion == null)
                 return;
 
-            _safetyController = new SafetyController(_comfortMenu.Locomotion, _participant);
+            _comfortMenu.OnParticipantIdleChanged += _participant.SetIdle;
+            _participant.SetIdle(_comfortMenu.ParticipantIdle);
+
+            _safetyController = new SafetyController(_comfortMenu, _participant);
             _safetyController.Init();
         }
 
@@ -75,6 +88,7 @@ namespace Game
             _heartStation.Init(_probe, _powerUnit, _participant);
             foreach (var monitor in _ecgMonitors)
                 monitor.Init(_heartStation);
+            _defibrillator?.Init(_heartStation);
 
             if (_flaskDispenser == null)
                 return;
@@ -98,6 +112,10 @@ namespace Game
         {
             _safetyController?.Dispose();
             _organSelection?.Dispose();
+            if (_comfortMenu != null && _participant != null)
+                _comfortMenu.OnParticipantIdleChanged -= _participant.SetIdle;
+            if (_comfortMenu != null && _playerBody != null)
+                _comfortMenu.OnShowBodyChanged -= _playerBody.SetVisible;
         }
     }
 }

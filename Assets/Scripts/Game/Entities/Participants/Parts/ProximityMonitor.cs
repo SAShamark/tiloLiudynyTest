@@ -21,6 +21,7 @@ namespace Game.Entities.Participants.Parts
         [SerializeField] private float _riseSpeed = 5f;
         [SerializeField] private float _fallSpeed = 2.2f;
 
+        public float StopDistance => _stopDistance;
         public ProximityLevel Level { get; private set; }
         public float Intensity { get; private set; }
 

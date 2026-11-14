@@ -19,14 +19,21 @@ namespace Game.Entities.Power
         [SerializeField] private Light _glowLight;
         [SerializeField] private float _lightIntensity = 0.8f;
 
+        [Header("Effects")]
+        [Tooltip("Looping charge aura (glow, arcs, motes) shown while the battery waits to be found.")]
+        [SerializeField] private ParticleSystem _aura;
+        [Tooltip("One-shot spark burst played when the battery is picked up.")]
+        [SerializeField] private ParticleSystem _grabBurst;
+
         private Renderer[] _renderers;
         private MaterialPropertyBlock _block;
         private Color[] _baseColors;
+        private bool _highlighted;
 
         protected override void Awake()
         {
             base.Awake();
-            _renderers = GetComponentsInChildren<Renderer>();
+            _renderers = System.Array.FindAll(GetComponentsInChildren<Renderer>(), r => r is not ParticleSystemRenderer);
             _block = new MaterialPropertyBlock();
             _baseColors = new Color[_renderers.Length];
             for (int i = 0; i < _renderers.Length; i++)
@@ -41,6 +48,9 @@ namespace Game.Entities.Power
         private void Update()
         {
             bool highlight = !IsHeld && !IsSocketed;
+            if (highlight != _highlighted)
+                SetHighlighted(highlight);
+
             float pulse = highlight ? 0.5f + 0.5f * Mathf.Sin(Time.time * _pulseSpeed) : 0f;
             float emission = highlight ? Mathf.Lerp(_emissionRange.x, _emissionRange.y, pulse) : _emissionRange.x;
             SetGlow(_glowColor * emission, highlight ? Mathf.Lerp(0.18f, 0.72f, pulse) : 0f);
@@ -50,6 +60,21 @@ namespace Game.Entities.Power
 
             _glowLight.enabled = highlight;
             _glowLight.intensity = _lightIntensity * Mathf.Lerp(0.4f, 1f, pulse);
+        }
+
+        private void SetHighlighted(bool highlighted)
+        {
+            _highlighted = highlighted;
+            if (_aura != null)
+            {
+                if (highlighted)
+                    _aura.Play(true);
+                else
+                    _aura.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            }
+
+            if (!highlighted && IsHeld && _grabBurst != null)
+                _grabBurst.Play(true);
         }
 
         private void SetGlow(Color emission, float tint)

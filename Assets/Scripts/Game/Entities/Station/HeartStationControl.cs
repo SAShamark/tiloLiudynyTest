@@ -13,8 +13,9 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 namespace Game.Entities.Station
 {
     /// <summary>
-    /// Station flow: power the generator with the battery and plug the cable in (Ready, the selected organ is projected),
-    /// pull the lever (Active, scanner loops and the heart beats), pull again to stop. Losing power or the cable shuts it down.
+    /// Station flow: power the generator with the battery and plug the cable in (Ready, the selected organ is projected).
+    /// The lever can be flipped at any time; the station goes Active (scanner loops, the heart beats) only while the
+    /// lever is on and power, cable and organ are all in place. Losing any of them drops it back without moving the lever.
     /// The organ comes from the flask in the flask socket or from the organ panel, whichever was used last.
     /// </summary>
     public sealed class HeartStationControl : MonoBehaviour
@@ -36,18 +37,29 @@ namespace Game.Entities.Station
         [SerializeField] private HeartPulseLoop _pulse = new();
         [Tooltip("Looping effect under the projection while the station runs.")]
         [SerializeField] private EffectPlayer _activeEffect;
+        [Tooltip("Sparks when the cable plug goes into the station.")]
+        [SerializeField] private SparkBurst _plugSparks;
 
         private Probe _probe;
         private PowerUnit _powerUnit;
         private ISafetyGate _safety;
         private AudioSource _socketAudio;
         private bool _probeConnected;
+        private bool _leverOn;
 
         public StationState State { get; private set; } = StationState.Unpowered;
 
         public OrganConfig SelectedOrgan { get; private set; }
 
+        /// <summary>True while the organ hologram is fully shown (station running with an organ selected).</summary>
+        public bool IsOrganVisible => State == StationState.Active && SelectedOrgan != null;
+
+        /// <summary>Centre of the organ hologram.</summary>
+        public Transform ProjectionPoint => _projector.transform;
+
         public event Action<StationState> OnStateChanged;
+        /// <summary>The defibrillator discharged into the organ.</summary>
+        public event Action OnShocked;
         public event Action<OrganConfig> OnOrganChanged;
         /// <summary>A flask was pushed out of the socket to make room for another one.</summary>
         public event Action<OrganFlask> OnFlaskEjected;
@@ -155,12 +167,16 @@ namespace Game.Entities.Station
 
             SelectedOrgan = organ;
             _projector.SetOrgan(organ);
-            if (organ == null && State == StationState.Active)
-                SetState(StationState.Ready);
-            else
-                RefreshPulse();
+            RefreshActivation();
+            RefreshPulse();
 
             OnOrganChanged?.Invoke(organ);
+        }
+
+        public void ReceiveShock()
+        {
+            _scanner.Play();
+            OnShocked?.Invoke();
         }
 
         private void RefreshPulse()
@@ -190,15 +206,29 @@ namespace Game.Entities.Station
                 SetState(StationState.Unpowered);
             else if (State == StationState.Unpowered)
                 SetState(StationState.Ready);
+
+            RefreshActivation();
+        }
+
+        // The lever only records what the player wants; the station runs once power, cable and organ are all there.
+        private void RefreshActivation()
+        {
+            if (State == StationState.Unpowered)
+                return;
+
+            SetState(_leverOn && SelectedOrgan != null ? StationState.Active : StationState.Ready);
         }
 
         private void HandlePoweredChanged(bool _) => RefreshPower();
 
-        private bool CanPullLever() => State != StationState.Unpowered && SelectedOrgan != null && !IsStopActive;
+        private bool CanPullLever() => !IsStopActive;
+
+        private bool ConditionsMet() => State != StationState.Unpowered && SelectedOrgan != null;
 
         private void HandleLeverPulled()
         {
-            SetState(State == StationState.Active ? StationState.Ready : StationState.Active);
+            _leverOn = !_leverOn;
+            RefreshActivation();
             _socketAudio.PlayOneShot(_insertionClick, 0.55f);
         }
 
@@ -215,7 +245,11 @@ namespace Game.Entities.Station
             bool playFeedback = !IsStopActive;
             probe.ConfirmInsertion(playFeedback);
             if (playFeedback)
+            {
                 _socketAudio.PlayOneShot(_insertionClick, 0.45f);
+                if (_plugSparks != null)
+                    _plugSparks.Play();
+            }
         }
 
         private void HandleProbeRemoved(SelectExitEventArgs args)
@@ -264,7 +298,8 @@ namespace Game.Entities.Station
                 : CreateLocalAnchor();
             anchor.gameObject.AddComponent<StationCable>().Init(_probe.transform, bodyMaterial);
 
-            _lever.Init(CanPullLever, () => State == StationState.Active, HandleLeverPulled);
+            _lever.Init(CanPullLever, () => _leverOn, HandleLeverPulled);
+            _lever.SetIndicators(ConditionsMet, () => State == StationState.Active);
         }
 
         private Transform CreateLocalAnchor()

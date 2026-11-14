@@ -1,3 +1,4 @@
+using System;
 using Game.Entities.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -33,11 +34,29 @@ namespace Game.Comfort
         [Tooltip("Pause between two snap turns while the stick is held. The XRI default of 0.5 s feels sluggish.")]
         [SerializeField, Min(0f)] private float _snapDelay = 0.2f;
 
+        [Header("Participant & safety defaults")]
+        [SerializeField] private bool _participantIdle;
+        [Tooltip("Show proximity warnings while moving with the stick, not only when walking physically.")]
+        [SerializeField] private bool _stickWarnings;
+        [SerializeField] private bool _showBody = true;
+        [Tooltip("Raises or lowers the view (centimetres) for players who feel too tall or too short.")]
+        [SerializeField, Range(-60f, 40f)] private float _heightOffset;
+
+        // Offset currently added on top of whatever height the XR Origin itself set (metres).
+        private float _appliedHeight;
+
         private PlayerRig _rig;
         private PalmMenuGesture _palmGesture;
         private InputAction _toggleMenu;
 
         public LocomotionController Locomotion { get; private set; }
+        public bool ParticipantIdle => _participantIdle;
+        public bool StickWarnings => _stickWarnings;
+
+        public event Action<bool> OnParticipantIdleChanged;
+        public event Action<bool> OnStickWarningsChanged;
+        public bool ShowBody => _showBody;
+        public event Action<bool> OnShowBodyChanged;
 
         public bool Init(PlayerRig rig)
         {
@@ -70,6 +89,14 @@ namespace Game.Comfort
             _view.OnTurnAmountChanged += HandleTurnAmountChanged;
             _view.OnReturnClicked += ReturnToStart;
             _view.OnCloseClicked += Close;
+            _view.OnParticipantIdleSelected += HandleParticipantIdleSelected;
+            _view.OnStickWarningsSelected += HandleStickWarningsSelected;
+            _view.ShowParticipantIdle(_participantIdle);
+            _view.ShowStickWarnings(_stickWarnings);
+            _view.OnShowBodySelected += HandleShowBodySelected;
+            _view.ShowBody(_showBody);
+            _view.OnHeightChanged += HandleHeightChanged;
+            HandleHeightChanged(_heightOffset);
 
             _palmGesture = new PalmMenuGesture(rig);
             _toggleMenu = new InputAction(type: InputActionType.Button, binding: "<XRController>{LeftHand}/primaryButton");
@@ -107,6 +134,45 @@ namespace Game.Comfort
             _view.OnTurnAmountChanged -= HandleTurnAmountChanged;
             _view.OnReturnClicked -= ReturnToStart;
             _view.OnCloseClicked -= Close;
+            _view.OnParticipantIdleSelected -= HandleParticipantIdleSelected;
+            _view.OnStickWarningsSelected -= HandleStickWarningsSelected;
+            _view.OnShowBodySelected -= HandleShowBodySelected;
+            _view.OnHeightChanged -= HandleHeightChanged;
+        }
+
+        // Shifts the tracking space relative to its current height (the XR Origin may set its own camera offset
+        // after start-up), replacing only the part this slider added before.
+        private void HandleHeightChanged(float centimetres)
+        {
+            _heightOffset = centimetres;
+            _view.ShowHeight(centimetres);
+            float wanted = centimetres * 0.01f;
+            Transform space = _rig.TrackingSpace;
+            Vector3 position = space.localPosition;
+            position.y += wanted - _appliedHeight;
+            space.localPosition = position;
+            _appliedHeight = wanted;
+        }
+
+        private void HandleShowBodySelected(bool visible)
+        {
+            _showBody = visible;
+            _view.ShowBody(visible);
+            OnShowBodyChanged?.Invoke(visible);
+        }
+
+        private void HandleParticipantIdleSelected(bool idle)
+        {
+            _participantIdle = idle;
+            _view.ShowParticipantIdle(idle);
+            OnParticipantIdleChanged?.Invoke(idle);
+        }
+
+        private void HandleStickWarningsSelected(bool enabled)
+        {
+            _stickWarnings = enabled;
+            _view.ShowStickWarnings(enabled);
+            OnStickWarningsChanged?.Invoke(enabled);
         }
 
         private void SetOpen(bool open)

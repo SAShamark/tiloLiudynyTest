@@ -10,6 +10,8 @@ namespace Game.Entities.Pickups
     [Serializable]
     public class DropRecovery
     {
+        [Tooltip("Off: the item stays wherever it falls.")]
+        [SerializeField] private bool _enabled = true;
         [SerializeField] private float _returnBelowHeight = 0.35f;
         [SerializeField] private float _returnDelay = 0.6f;
 
@@ -31,7 +33,7 @@ namespace Game.Entities.Pickups
         public bool FixedTick(float deltaTime)
         {
             // Parked items (on a tray, in a slot) are held in place on purpose, not dropped.
-            if (_grab.isSelected || _body.isKinematic || _body.position.y >= _returnBelowHeight)
+            if (!_enabled || _grab.isSelected || _body.isKinematic || _body.position.y >= _returnBelowHeight)
             {
                 _timeBelowHeight = 0f;
                 return false;

@@ -1,6 +1,12 @@
 Shader "HeartDemo/Proximity Vignette"
 {
-    Properties { _Strength ("Strength", Range(0, 1)) = 0 }
+    Properties
+    {
+        _Strength ("Strength", Range(0, 1)) = 0
+        _Direction ("Danger direction (screen, unit)", Vector) = (0, 0, 0, 0)
+        _Focus ("Focus on direction", Range(0, 1)) = 0
+        _Pulse ("Pulse", Range(0, 1)) = 0
+    }
     SubShader
     {
         Tags { "Queue"="Overlay" "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" }
@@ -31,6 +37,9 @@ Shader "HeartDemo/Proximity Vignette"
             };
             CBUFFER_START(UnityPerMaterial)
                 float _Strength;
+                float4 _Direction;
+                float _Focus;
+                float _Pulse;
             CBUFFER_END
 
             Varyings Vert(Attributes input)
@@ -46,9 +55,18 @@ Shader "HeartDemo/Proximity Vignette"
             half4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                float radius = length((input.uv - 0.5) * 4.8);
+                float2 centred = (input.uv - 0.5) * 4.8;
+                float radius = length(centred);
                 float edge = smoothstep(0.42, 1.35, radius);
-                return half4(0.85, 0.018, 0.025, edge * _Strength * 0.67);
+
+                // Glow gathers on the screen edge that faces the danger instead of ringing the whole view.
+                float2 toPixel = centred / max(radius, 1e-4);
+                float facing = saturate(dot(toPixel, _Direction.xy) * 0.5 + 0.5);
+                float side = lerp(1.0, facing * facing * 1.6, _Focus);
+
+                float glow = edge * side * (0.75 + 0.25 * _Pulse);
+                half3 color = lerp(half3(0.85, 0.018, 0.025), half3(1.0, 0.25, 0.1), _Pulse * 0.4);
+                return half4(color, saturate(glow * _Strength * 0.75));
             }
             ENDHLSL
         }
