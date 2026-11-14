@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Entities.Pickups;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -6,13 +7,13 @@ using UnityEngine.XR.Interaction.Toolkit;
 namespace Game.Entities.Organs
 {
     /// <summary>
-    /// Storage cabinet for organ flasks. Asking for an organ slides its flask out onto the tray;
-    /// a flask left on the tray slides back in when another one is requested.
-    /// Dropped flasks return to their slot.
+    /// Vending machine for organ flasks. A requested flask drops from its shelf into the chute and
+    /// rolls out onto the tray on its side; requesting it again (or another organ) rolls it back in.
+    /// Flasks ejected from the station or dropped on the floor fly back to their shelf.
     /// </summary>
     public sealed class FlaskDispenser : MonoBehaviour
     {
-        private enum SlotState { Stored, MovingOut, Presented, MovingIn, Free }
+        private enum SlotState { Stored, Dispensing, Presented, Retracting, Returning, Free }
 
         [Serializable]
         private sealed class Slot
@@ -21,14 +22,50 @@ namespace Game.Entities.Organs
             public Transform StoredPoint;
             [NonSerialized] public SlotState State;
             [NonSerialized] public float Progress;
+            [NonSerialized] public Vector3 FromPosition;
+            [NonSerialized] public Quaternion FromRotation;
         }
 
         [SerializeField] private Slot[] _slots;
+        [Tooltip("Point inside the machine, behind the chute, where a flask lands before rolling out.")]
+        [SerializeField] private Transform _chutePoint;
         [SerializeField] private Transform _presentPoint;
-        [SerializeField, Min(0.1f)] private float _moveDuration = 0.9f;
-        [SerializeField] private AudioClip _moveClip;
+        [SerializeField, Min(0.1f)] private float _dropDuration = 0.35f;
+        [SerializeField, Min(0.1f)] private float _rollDuration = 0.7f;
+        [SerializeField, Min(0.1f)] private float _returnDuration = 0.6f;
+        [Tooltip("Flask radius used to turn rolling distance into spin.")]
+        [SerializeField, Min(0.01f)] private float _flaskRadius = 0.045f;
+        [SerializeField] private AudioClip _dispenseClip;
 
         private AudioSource _audio;
+
+        /// <summary>Organ whose flask is on its way out or waiting on the tray, or null.</summary>
+        public OrganConfig PresentedOrgan
+        {
+            get
+            {
+                foreach (var slot in _slots)
+                {
+                    if (slot.State is SlotState.Dispensing or SlotState.Presented)
+                        return slot.Flask.Organ;
+                }
+
+                return null;
+            }
+        }
+
+        public event Action OnChanged;
+
+        public IReadOnlyList<OrganFlask> Flasks
+        {
+            get
+            {
+                var flasks = new List<OrganFlask>(_slots.Length);
+                foreach (var slot in _slots)
+                    flasks.Add(slot.Flask);
+                return flasks;
+            }
+        }
 
         public void Init()
         {
@@ -43,39 +80,53 @@ namespace Game.Entities.Organs
                 slot.Flask.OnRecovered += HandleRecovered;
                 slot.Flask.Interactable.selectEntered.AddListener(HandleGrabbed);
 
-                // A flask placed elsewhere in the scene (e.g. already in the station socket) starts out of the cabinet.
-                if (Vector3.Distance(slot.Flask.transform.position, slot.StoredPoint.position) > 0.05f)
-                {
-                    slot.State = SlotState.Free;
-                    continue;
-                }
-
                 Store(slot);
             }
         }
 
-        public void Present(OrganConfig organ)
+        /// <summary>Toggle: rolls the organ's flask out, or back in if it is already out.</summary>
+        public void Toggle(OrganConfig organ)
         {
             Slot requested = Find(organ);
-            if (requested == null || requested.State is SlotState.MovingOut or SlotState.Presented)
+            if (requested == null)
                 return;
 
-            if (requested.State == SlotState.Free)
+            switch (requested.State)
             {
-                // The flask is out in the room; only recall it if nobody holds it and it is not in a socket.
-                if (requested.Flask.IsHeld || requested.Flask.IsSocketed)
+                case SlotState.Dispensing:
+                case SlotState.Presented:
+                    StartMove(requested, SlotState.Retracting);
+                    Notify();
                     return;
-
-                Store(requested);
+                case SlotState.Free when requested.Flask.IsHeld || requested.Flask.IsSocketed:
+                    return;
+                case SlotState.Free:
+                case SlotState.Returning:
+                    Store(requested);
+                    break;
             }
 
             foreach (var slot in _slots)
             {
-                if (slot != requested && slot.State is SlotState.Presented or SlotState.MovingOut)
-                    StartMove(slot, SlotState.MovingIn);
+                if (slot != requested && slot.State is SlotState.Presented or SlotState.Dispensing)
+                    StartMove(slot, SlotState.Retracting);
             }
 
-            StartMove(requested, SlotState.MovingOut);
+            StartMove(requested, SlotState.Dispensing);
+            if (_dispenseClip != null)
+                _audio.PlayOneShot(_dispenseClip, 0.6f);
+            Notify();
+        }
+
+        /// <summary>Sends a flask from wherever it is back to its shelf.</summary>
+        public void Return(OrganFlask flask)
+        {
+            Slot slot = Find(flask);
+            if (slot == null || slot.Flask.IsHeld)
+                return;
+
+            StartMove(slot, SlotState.Returning);
+            Notify();
         }
 
         private void OnDestroy()
@@ -97,47 +148,92 @@ namespace Game.Entities.Organs
         {
             foreach (var slot in _slots)
             {
-                if (slot.State is not (SlotState.MovingOut or SlotState.MovingIn))
-                    continue;
-
-                slot.Progress = Mathf.MoveTowards(slot.Progress, 1f, Time.deltaTime / _moveDuration);
-                float eased = Mathf.SmoothStep(0f, 1f, slot.Progress);
-                bool outward = slot.State == SlotState.MovingOut;
-                Transform from = outward ? slot.StoredPoint : _presentPoint;
-                Transform to = outward ? _presentPoint : slot.StoredPoint;
-                slot.Flask.MoveTo(Vector3.Lerp(from.position, to.position, eased),
-                    Quaternion.Slerp(from.rotation, to.rotation, eased));
-
-                if (slot.Progress < 1f)
-                    continue;
-
-                if (outward)
+                switch (slot.State)
                 {
-                    slot.State = SlotState.Presented;
-                    slot.Flask.Park(grabbable: true);
-                }
-                else
-                {
-                    Store(slot);
+                    case SlotState.Dispensing:
+                        UpdateDispensing(slot);
+                        break;
+                    case SlotState.Retracting:
+                        UpdateRetracting(slot);
+                        break;
+                    case SlotState.Returning:
+                        UpdateReturning(slot);
+                        break;
                 }
             }
+        }
+
+        private void UpdateDispensing(Slot slot)
+        {
+            float total = _dropDuration + _rollDuration;
+            slot.Progress = Mathf.MoveTowards(slot.Progress, 1f, Time.deltaTime / total);
+            float time = slot.Progress * total;
+
+            if (time < _dropDuration)
+            {
+                // Fall from the shelf into the chute (accelerating, like a dropped bottle).
+                float t = time / _dropDuration;
+                slot.Flask.MoveTo(Vector3.Lerp(slot.StoredPoint.position, _chutePoint.position, t * t),
+                    Quaternion.Slerp(slot.StoredPoint.rotation, _chutePoint.rotation, t));
+            }
+            else
+            {
+                // Roll out of the chute onto the tray, spinning around its long axis.
+                float t = Mathf.SmoothStep(0f, 1f, (time - _dropDuration) / _rollDuration);
+                Vector3 position = Vector3.Lerp(_chutePoint.position, _presentPoint.position, t);
+                float distance = Vector3.Distance(_chutePoint.position, position);
+                float spin = distance / _flaskRadius * Mathf.Rad2Deg;
+                slot.Flask.MoveTo(position, _presentPoint.rotation * Quaternion.AngleAxis(spin, Vector3.up));
+            }
+
+            if (slot.Progress < 1f)
+                return;
+
+            slot.State = SlotState.Presented;
+            slot.Flask.MoveTo(_presentPoint.position, _presentPoint.rotation * Quaternion.AngleAxis(
+                Vector3.Distance(_chutePoint.position, _presentPoint.position) / _flaskRadius * Mathf.Rad2Deg, Vector3.up));
+            slot.Flask.Park(grabbable: true);
+            Notify();
+        }
+
+        private void UpdateRetracting(Slot slot)
+        {
+            slot.Progress = Mathf.MoveTowards(slot.Progress, 1f, Time.deltaTime / (_rollDuration * 0.6f));
+            float t = Mathf.SmoothStep(0f, 1f, slot.Progress);
+            slot.Flask.MoveTo(Vector3.Lerp(slot.FromPosition, _chutePoint.position, t), slot.FromRotation);
+            if (slot.Progress >= 1f)
+                Store(slot);
+        }
+
+        private void UpdateReturning(Slot slot)
+        {
+            slot.Progress = Mathf.MoveTowards(slot.Progress, 1f, Time.deltaTime / _returnDuration);
+            float t = Mathf.SmoothStep(0f, 1f, slot.Progress);
+            Vector3 position = Vector3.Lerp(slot.FromPosition, slot.StoredPoint.position, t)
+                + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.25f);
+            slot.Flask.MoveTo(position, Quaternion.Slerp(slot.FromRotation, slot.StoredPoint.rotation, t));
+            if (slot.Progress >= 1f)
+                Store(slot);
         }
 
         private void StartMove(Slot slot, SlotState state)
         {
             slot.State = state;
             slot.Progress = 0f;
+            slot.FromPosition = slot.Flask.transform.position;
+            slot.FromRotation = slot.Flask.transform.rotation;
             slot.Flask.Park(grabbable: false);
-            if (_moveClip != null)
-                _audio.PlayOneShot(_moveClip, 0.5f);
         }
 
         private void Store(Slot slot)
         {
+            bool changed = slot.State != SlotState.Stored;
             slot.State = SlotState.Stored;
             slot.Progress = 0f;
             slot.Flask.Park(grabbable: false);
             slot.Flask.MoveTo(slot.StoredPoint.position, slot.StoredPoint.rotation);
+            if (changed)
+                Notify();
         }
 
         private Slot Find(OrganConfig organ)
@@ -164,8 +260,12 @@ namespace Game.Entities.Organs
 
         private void HandleGrabbed(SelectEnterEventArgs args)
         {
-            if (args.interactableObject.transform.TryGetComponent(out OrganFlask flask) && Find(flask) is { } slot)
+            if (args.interactableObject.transform.TryGetComponent(out OrganFlask flask) && Find(flask) is { } slot
+                && slot.State != SlotState.Free)
+            {
                 slot.State = SlotState.Free;
+                Notify();
+            }
         }
 
         private void HandleRecovered(Pickup pickup)
@@ -173,5 +273,7 @@ namespace Game.Entities.Organs
             if (pickup is OrganFlask flask && Find(flask) is { } slot)
                 Store(slot);
         }
+
+        private void Notify() => OnChanged?.Invoke();
     }
 }

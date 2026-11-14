@@ -8,7 +8,7 @@ namespace Game.Entities.Organs
     /// World-space panel with one button per organ in the catalog.
     /// Buttons are cloned from a template inside the prefab, so the look is edited in the prefab.
     /// </summary>
-    public sealed class OrganPanel : MonoBehaviour
+    public sealed class OrganPanel : MonoBehaviour, IOrganSelector
     {
         [SerializeField] private OrganButtonView _buttonTemplate;
         [SerializeField] private Transform _buttonsRoot;

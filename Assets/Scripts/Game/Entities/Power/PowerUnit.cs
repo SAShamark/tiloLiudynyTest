@@ -1,5 +1,4 @@
 using System;
-using Game.Entities.Environment;
 using Services.Audio;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -22,7 +21,6 @@ namespace Game.Entities.Power
         [SerializeField] private Color _barOffColor = new(0.08f, 0.1f, 0.12f);
         [SerializeField] private Color _barOnColor = new(0.25f, 1f, 0.45f);
         [SerializeField, Min(0.05f)] private float _barFillInterval = 0.18f;
-        [SerializeField] private EffectPlayer _poweredEffect;
 
         private MaterialPropertyBlock _block;
         private AudioSource _audio;
@@ -30,6 +28,8 @@ namespace Game.Entities.Power
         private Battery _battery;
         private int _litBars;
         private float _untilNextBar;
+        private const float ReadyPulseDuration = 0.45f;
+        private float _readyPulseRemaining;
 
         public bool IsPowered { get; private set; }
         public Transform CableAnchor => _cableAnchor;
@@ -69,6 +69,14 @@ namespace Game.Entities.Power
 
         private void Update()
         {
+            if (_readyPulseRemaining > 0f)
+            {
+                _readyPulseRemaining = Mathf.Max(0f, _readyPulseRemaining - Time.deltaTime);
+                float pulse = Mathf.Sin(Mathf.PI * _readyPulseRemaining / ReadyPulseDuration);
+                for (int i = 0; i < _litBars; i++)
+                    SetBar(i, true, pulse);
+            }
+
             int target = _battery != null ? _chargeBars.Length : 0;
             if (_litBars == target)
                 return;
@@ -111,12 +119,16 @@ namespace Game.Entities.Power
         private void SetPowered(bool powered)
         {
             IsPowered = powered;
-            if (powered && _poweredEffect != null)
-                _poweredEffect.Play();
+            _readyPulseRemaining = powered ? ReadyPulseDuration : 0f;
+            if (!powered)
+            {
+                for (int i = 0; i < _litBars; i++)
+                    SetBar(i, true);
+            }
             OnPoweredChanged?.Invoke(powered);
         }
 
-        private void SetBar(int index, bool on)
+        private void SetBar(int index, bool on, float pulse = 0f)
         {
             var bar = _chargeBars[index];
             if (bar == null)
@@ -124,8 +136,8 @@ namespace Game.Entities.Power
 
             Color color = on ? _barOnColor : _barOffColor;
             bar.GetPropertyBlock(_block);
-            _block.SetColor(BaseColorId, color);
-            _block.SetColor(EmissionId, on ? color * 2f : Color.black);
+            _block.SetColor(BaseColorId, Color.Lerp(color, Color.white, pulse * 0.65f));
+            _block.SetColor(EmissionId, on ? color * (2f + pulse * 2f) : Color.black);
             bar.SetPropertyBlock(_block);
         }
     }

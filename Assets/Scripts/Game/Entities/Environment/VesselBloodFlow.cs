@@ -24,8 +24,8 @@ namespace Game.Entities.Environment
         [Tooltip("How far from the tunnel axis cells may travel, relative to the tunnel radius.")]
         [SerializeField, Range(0.1f, 0.95f)] private float _laneSpread = 0.8f;
         [Tooltip("Where along the tunnel cells are born (0 = window plane, negative = behind the capsule).")]
-        [SerializeField, Range(-0.4f, 0f)] private float _startOffset = -0.18f;
-        [Tooltip("Half size of the capsule cross-section around the tunnel axis; cells stay outside it until they pass the window.")]
+        [SerializeField, Range(-0.4f, 0.1f)] private float _startOffset;
+        [Tooltip("Half size of the window opening around the tunnel axis; cells start outside it (hidden by the front wall) and drift into view.")]
         [SerializeField] private Vector2 _capsuleHalfExtents = new(2.8f, 1.7f);
         [Tooltip("Tunnel fraction after the window over which cells drift from the capsule edge into their lane.")]
         [SerializeField, Range(0.01f, 0.3f)] private float _entryLength = 0.12f;
@@ -148,7 +148,7 @@ namespace Game.Entities.Environment
                 particle.position = _tunnel.GetPoint(t) + offset;
 
                 // Grow while still hidden behind the capsule; full size well before the window.
-                float grow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(_startOffset, _startOffset * 0.4f, t));
+                float grow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(_startOffset, _startOffset + 0.04f, t));
                 particle.startSize = Mathf.Lerp(_sizeRange.x, _sizeRange.y, Sample(seed, 3) * Sample(seed, 4)) * grow;
 
                 var baseRotation = new Vector3(Sample(seed, 5), Sample(seed, 6), Sample(seed, 8)) * 360f;

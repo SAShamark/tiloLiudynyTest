@@ -30,7 +30,8 @@ namespace Game.Entities.Pickups
         /// <returns>True on the step the item was sent home.</returns>
         public bool FixedTick(float deltaTime)
         {
-            if (_grab.isSelected || _body.position.y >= _returnBelowHeight)
+            // Parked items (on a tray, in a slot) are held in place on purpose, not dropped.
+            if (_grab.isSelected || _body.isKinematic || _body.position.y >= _returnBelowHeight)
             {
                 _timeBelowHeight = 0f;
                 return false;

@@ -17,13 +17,16 @@ namespace Game
     public sealed class EntryPoint : MonoBehaviour
     {
         [SerializeField] private XROrigin _xrOrigin;
+        [SerializeField] private ControllerHandView _controllerHands;
         [SerializeField] private ComfortMenu _comfortMenu;
         [SerializeField] private ParticipantControl _participant;
         [SerializeField] private HeartStationControl _heartStation;
         [SerializeField] private Probe _probe;
         [SerializeField] private PowerUnit _powerUnit;
         [SerializeField] private OrganCatalog _organCatalog;
+        [Tooltip("World-space organ panel (optional when the dispenser has its own buttons).")]
         [SerializeField] private OrganPanel _organPanel;
+        [SerializeField] private FlaskButtonPanel _flaskButtons;
         [SerializeField] private FlaskDispenser _flaskDispenser;
         [SerializeField] private EcgMonitor[] _ecgMonitors;
 
@@ -48,6 +51,7 @@ namespace Game
         private void InitializePlayer()
         {
             _playerRig = new PlayerRig(_xrOrigin);
+            _controllerHands?.Init(_playerRig.TrackingSpace);
         }
 
         private void InitializeComfort()
@@ -72,12 +76,21 @@ namespace Game
             foreach (var monitor in _ecgMonitors)
                 monitor.Init(_heartStation);
 
-            if (_organPanel == null || _organCatalog == null || _flaskDispenser == null)
+            if (_flaskDispenser == null)
                 return;
 
             _flaskDispenser.Init();
-            _organPanel.Init(_organCatalog.Organs, _playerRig.Camera);
-            _organSelection = new OrganSelectionController(_organPanel, _flaskDispenser, _heartStation);
+            IOrganSelector selector = _flaskButtons;
+            if (selector == null && _organPanel != null && _organCatalog != null)
+            {
+                _organPanel.Init(_organCatalog.Organs, _playerRig.Camera);
+                selector = _organPanel;
+            }
+
+            if (selector == null)
+                return;
+
+            _organSelection = new OrganSelectionController(selector, _flaskDispenser, _heartStation);
             _organSelection.Init();
         }
 

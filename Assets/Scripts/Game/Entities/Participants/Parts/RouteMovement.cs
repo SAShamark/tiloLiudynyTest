@@ -24,6 +24,9 @@ namespace Game.Entities.Participants.Parts
         private float _delayLeft;
         private int _nextPoint;
 
+        /// <summary>Actual speed this frame, in metres per second (0 while waiting).</summary>
+        public float CurrentSpeed { get; private set; }
+
         public void Init(Transform body, float speed)
         {
             _body = body;
@@ -38,6 +41,7 @@ namespace Game.Entities.Participants.Parts
             if (_delayLeft > 0f)
             {
                 _delayLeft -= deltaTime;
+                CurrentSpeed = 0f;
                 return;
             }
 
@@ -49,7 +53,9 @@ namespace Game.Entities.Participants.Parts
                 _body.rotation = Quaternion.RotateTowards(_body.rotation, heading, _turnSpeed * deltaTime);
             }
 
-            _body.position = Vector3.MoveTowards(_body.position, target, _speed * deltaTime);
+            Vector3 before = _body.position;
+            _body.position = Vector3.MoveTowards(before, target, _speed * deltaTime);
+            CurrentSpeed = deltaTime > 0f ? Vector3.Distance(before, _body.position) / deltaTime : 0f;
             if (_body.position == target)
                 _nextPoint = (_nextPoint + 1) % _route.Length;
         }

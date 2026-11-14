@@ -18,6 +18,11 @@ namespace Game.Entities.Participants
         [SerializeField] private RouteMovement _movement = new();
         [SerializeField] private ProximityMonitor _proximity = new();
 
+        [Header("Avatar")]
+        [SerializeField] private Animator _animator;
+        [Tooltip("Walking speed (m/s) at which the walk clip plays at normal speed, so feet do not slide.")]
+        [SerializeField, Min(0.1f)] private float _clipWalkSpeed = 1.2f;
+
         private PlayerRig _rig;
         private ProximityAlertView _alertView;
         private ProximityWarningFeedback _feedback;
@@ -44,6 +49,8 @@ namespace Game.Entities.Participants
                 return;
 
             _movement.Tick(Time.deltaTime);
+            if (_animator != null)
+                _animator.speed = _movement.CurrentSpeed / _clipWalkSpeed;
         }
 
         private void LateUpdate()

@@ -22,7 +22,8 @@ namespace Game.Comfort
         [SerializeField] private TeleportationArea _floor;
         [SerializeField] private TunnelingVignetteController _vignettePrefab;
         [SerializeField] private ComfortMenuView _view;
-        [SerializeField] private float _playAreaHalfSize = 2.6f;
+        [Tooltip("Walkable floor in world XZ (x = X, y = Z). Leaving it returns the player to the start.")]
+        [SerializeField] private Rect _playArea = Rect.MinMaxRect(-3.9f, -7.4f, 3.9f, 2.4f);
         [SerializeField] private float _minHeadHeight = -0.5f;
 
         [Header("Turning defaults")]
@@ -74,7 +75,7 @@ namespace Game.Comfort
             _toggleMenu = new InputAction(type: InputActionType.Button, binding: "<XRController>{LeftHand}/primaryButton");
             _toggleMenu.Enable();
 
-            HandleModeSelected(MovementMode.Physical);
+            HandleModeSelected(MovementMode.Stick);
             HandleVignetteChanged(DefaultVignette);
             HandleTurnModeSelected(_defaultTurnMode);
             return true;
@@ -90,7 +91,7 @@ namespace Game.Comfort
             if (togglePressed || palmRaised)
                 SetOpen(!_view.IsOpen);
 
-            if (_rig.IsOutsidePlayArea(_playAreaHalfSize, _minHeadHeight))
+            if (_rig.IsOutsidePlayArea(_playArea, _minHeadHeight))
                 ReturnToStart();
         }
 

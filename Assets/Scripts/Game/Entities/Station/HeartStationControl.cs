@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Entities.Environment;
 using Game.Entities.Organs;
 using Game.Entities.Power;
@@ -7,6 +8,7 @@ using Game.Safety;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 namespace Game.Entities.Station
 {
@@ -18,7 +20,6 @@ namespace Game.Entities.Station
     public sealed class HeartStationControl : MonoBehaviour
     {
         private static readonly Vector3 CableAnchorPosition = new(-0.55f, 0.23f, -0.08f);
-        private static readonly Vector3 LeverPosition = new(0.29f, 0.9f, -0.23f);
         private const string BodyRendererPath = "Scanner body/Scanner upper bezel";
 
         [SerializeField] private XRSocketInteractor _socket;
@@ -27,7 +28,10 @@ namespace Game.Entities.Station
         [SerializeField] private GameObject _probeGuide;
         [SerializeField] private AudioClip _insertionClick;
         [SerializeField] private HeartScanner _scanner;
+        [SerializeField] private StationLever _lever;
         [SerializeField] private XRSocketInteractor _flaskSocket;
+        [Tooltip("Bringing another flask this close to an occupied flask socket ejects the current one.")]
+        [SerializeField, Min(0.02f)] private float _swapDistance = 0.18f;
         [SerializeField] private OrganProjector _projector;
         [SerializeField] private HeartPulseLoop _pulse = new();
         [Tooltip("Looping effect under the projection while the station runs.")]
@@ -45,6 +49,8 @@ namespace Game.Entities.Station
 
         public event Action<StationState> OnStateChanged;
         public event Action<OrganConfig> OnOrganChanged;
+        /// <summary>A flask was pushed out of the socket to make room for another one.</summary>
+        public event Action<OrganFlask> OnFlaskEjected;
 
         private bool IsStopActive => _safety != null && _safety.IsStopActive;
 
@@ -98,6 +104,37 @@ namespace Game.Entities.Station
 
             if (stop && _socketAudio.isPlaying)
                 _socketAudio.Stop();
+
+            TrySwapFlask();
+        }
+
+        private IReadOnlyList<OrganFlask> _flasks = Array.Empty<OrganFlask>();
+
+        /// <summary>Flasks that may be swapped into the socket.</summary>
+        public void SetSwappableFlasks(IReadOnlyList<OrganFlask> flasks) => _flasks = flasks;
+
+        // Swapping in one motion: bring the new flask to the station and the old one is ejected for you.
+        private void TrySwapFlask()
+        {
+            if (!_flaskSocket.hasSelection)
+                return;
+
+            var current = _flaskSocket.firstInteractableSelected.transform.GetComponent<OrganFlask>();
+            if (current == null)
+                return;
+
+            Vector3 socketPosition = _flaskSocket.attachTransform.position;
+            foreach (var flask in _flasks)
+            {
+                if (flask == current || !flask.IsHeld)
+                    continue;
+                if ((flask.transform.position - socketPosition).sqrMagnitude > _swapDistance * _swapDistance)
+                    continue;
+
+                _flaskSocket.interactionManager.SelectExit((IXRSelectInteractor)_flaskSocket, (IXRSelectInteractable)current.Interactable);
+                OnFlaskEjected?.Invoke(current);
+                return;
+            }
         }
 
         private void SetState(StationState state)
@@ -221,17 +258,13 @@ namespace Game.Entities.Station
         {
             var body = transform.Find(BodyRendererPath)?.GetComponent<Renderer>();
             Material bodyMaterial = body != null ? body.sharedMaterial : _probe.GetComponent<Renderer>().sharedMaterial;
-            Material readyMaterial = _socketHighlight.GetComponent<Renderer>().sharedMaterial;
 
             Transform anchor = _powerUnit != null && _powerUnit.CableAnchor != null
                 ? _powerUnit.CableAnchor
                 : CreateLocalAnchor();
             anchor.gameObject.AddComponent<StationCable>().Init(_probe.transform, bodyMaterial);
 
-            var lever = new GameObject("Pull to start").transform;
-            lever.SetParent(transform, false);
-            lever.localPosition = LeverPosition;
-            lever.gameObject.AddComponent<StationLever>().Init(bodyMaterial, readyMaterial, CanPullLever, HandleLeverPulled);
+            _lever.Init(CanPullLever, () => State == StationState.Active, HandleLeverPulled);
         }
 
         private Transform CreateLocalAnchor()

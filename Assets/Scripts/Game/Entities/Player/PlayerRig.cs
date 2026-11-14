@@ -12,11 +12,15 @@ namespace Game.Entities.Player
     {
         private readonly XROrigin _origin;
         private readonly HapticImpulsePlayer[] _haptics;
+        private readonly Vector3 _startPosition;
+        private readonly Vector3 _startForward;
 
         public PlayerRig(XROrigin origin)
         {
             _origin = origin;
             _haptics = origin.GetComponentsInChildren<HapticImpulsePlayer>(true);
+            _startPosition = origin.transform.position;
+            _startForward = Vector3.ProjectOnPlane(origin.transform.forward, Vector3.up).normalized;
         }
 
         public Camera Camera => _origin.Camera;
@@ -48,16 +52,18 @@ namespace Game.Entities.Player
             return offset;
         }
 
-        public bool IsOutsidePlayArea(float halfSize, float minHeight)
+        /// <param name="area">Allowed floor rectangle in world XZ (x = world X, y = world Z).</param>
+        public bool IsOutsidePlayArea(Rect area, float minHeight)
         {
             Vector3 head = Head.position;
-            return head.y < minHeight || Mathf.Abs(head.x) > halfSize || Mathf.Abs(head.z) > halfSize;
+            return head.y < minHeight || !area.Contains(new Vector2(head.x, head.z));
         }
 
+        /// <summary>Puts the player back where the session started, facing the same way.</summary>
         public void ReturnToStart()
         {
-            _origin.MatchOriginUpCameraForward(Vector3.up, Vector3.forward);
-            _origin.MoveCameraToWorldLocation(Vector3.up * _origin.CameraInOriginSpaceHeight);
+            _origin.MatchOriginUpCameraForward(Vector3.up, _startForward);
+            _origin.MoveCameraToWorldLocation(_startPosition + Vector3.up * _origin.CameraInOriginSpaceHeight);
         }
 
         public void SendHaptics(float amplitude, float duration)

@@ -1,7 +1,14 @@
 fileFormatVersion: 2
 guid: 9518567d28735f14d8ad8805d9dff3dd
+AssetOrigin:
+  serializedVersion: 1
+  productId: 378678
+  packageName: 'FREE Demo: Low Poly Sci-Fi Laboratory 2 / Cosmic Retro'
+  packageVersion: 1.0
+  assetPath: Assets/room/Cosmic_Retro_Laboratory_2_Demo/Models/Props/CR_Lab2_Computer_01.fbx
+  uploadId: 912582
 ModelImporter:
-  serializedVersion: 22200
+  serializedVersion: 24300
   internalIDToNameTable: []
   externalObjects:
   - first:
@@ -19,6 +26,7 @@ ModelImporter:
     materialName: 1
     materialSearch: 2
     materialLocation: 1
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
@@ -26,8 +34,6 @@ ModelImporter:
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
     motionNodeName: 
-    rigImportErrors: 
-    rigImportWarnings: 
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
@@ -58,7 +64,7 @@ ModelImporter:
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
-    generateSecondaryUV: 0
+    generateSecondaryUV: 1
     useFileUnits: 1
     keepQuads: 0
     weldVertices: 1
@@ -68,15 +74,18 @@ ModelImporter:
     maxBonesPerVertex: 4
     minBoneWeight: 0.001
     optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
     meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
-    secondaryUVHardAngle: 88
+    secondaryUVHardAngle: 70
     secondaryUVMarginMethod: 1
     secondaryUVMinLightmapResolution: 40
     secondaryUVMinObjectScale: 1
-    secondaryUVPackMargin: 4
+    secondaryUVPackMargin: 8
     useFileScale: 1
     strictVertexDataChecks: 0
   tangentSpace:
@@ -117,10 +126,3 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 378678
-  packageName: 'FREE Demo: Low Poly Sci-Fi Laboratory 2 / Cosmic Retro'
-  packageVersion: 1.0
-  assetPath: Assets/room/Cosmic_Retro_Laboratory_2_Demo/Models/Props/CR_Lab2_Computer_01.fbx
-  uploadId: 912582

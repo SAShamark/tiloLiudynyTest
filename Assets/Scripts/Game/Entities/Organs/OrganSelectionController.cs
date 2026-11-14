@@ -4,16 +4,18 @@ using Game.Entities.Station;
 namespace Game.Entities.Organs
 {
     /// <summary>
-    /// Connects the organ panel to the flask dispenser and the station: a click slides that organ's flask out
-    /// of the cabinet, and the organ currently projected by the station is highlighted on the panel.
+    /// Organ panel works as a toggle group over the flask dispenser:
+    /// a button rolls that organ's flask out, pressing it again rolls it back in.
+    /// The highlighted button is the flask waiting on the tray, otherwise the organ in the station.
+    /// Bringing a new flask to the station ejects the old one, which flies back into the dispenser.
     /// </summary>
     public sealed class OrganSelectionController : IDisposable
     {
-        private readonly OrganPanel _panel;
+        private readonly IOrganSelector _panel;
         private readonly FlaskDispenser _dispenser;
         private readonly HeartStationControl _station;
 
-        public OrganSelectionController(OrganPanel panel, FlaskDispenser dispenser, HeartStationControl station)
+        public OrganSelectionController(IOrganSelector panel, FlaskDispenser dispenser, HeartStationControl station)
         {
             _panel = panel;
             _dispenser = dispenser;
@@ -22,15 +24,24 @@ namespace Game.Entities.Organs
 
         public void Init()
         {
-            _panel.OnOrganSelected += _dispenser.Present;
-            _station.OnOrganChanged += _panel.Highlight;
-            _panel.Highlight(_station.SelectedOrgan);
+            _station.SetSwappableFlasks(_dispenser.Flasks);
+            _panel.OnOrganSelected += _dispenser.Toggle;
+            _dispenser.OnChanged += RefreshHighlight;
+            _station.OnOrganChanged += HandleOrganChanged;
+            _station.OnFlaskEjected += _dispenser.Return;
+            RefreshHighlight();
         }
 
         public void Dispose()
         {
-            _panel.OnOrganSelected -= _dispenser.Present;
-            _station.OnOrganChanged -= _panel.Highlight;
+            _panel.OnOrganSelected -= _dispenser.Toggle;
+            _dispenser.OnChanged -= RefreshHighlight;
+            _station.OnOrganChanged -= HandleOrganChanged;
+            _station.OnFlaskEjected -= _dispenser.Return;
         }
+
+        private void HandleOrganChanged(OrganConfig _) => RefreshHighlight();
+
+        private void RefreshHighlight() => _panel.Highlight(_dispenser.PresentedOrgan ?? _station.SelectedOrgan);
     }
 }

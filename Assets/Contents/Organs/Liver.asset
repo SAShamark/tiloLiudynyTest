@@ -16,5 +16,5 @@ MonoBehaviour:
   _model: {fileID: 4025372068969178944, guid: 6393f167b2a67e24c9e993a4e2b269ac, type: 3}
   _hologramMaterial: {fileID: 2100000, guid: 340264dc39663764b8155fed87bcfe8a, type: 2}
   _projectionSize: 0.5
-  _rotationOffset: {x: 0, y: 0, z: 0}
-  _beats: 0
+  _rotationOffset: {x: 90, y: 0, z: 0}
+  _beats: 1

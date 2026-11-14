@@ -10,6 +10,8 @@ namespace Game.Entities.Power
     public sealed class Battery : Pickup
     {
         private static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         [SerializeField] private Color _glowColor = new(0.2f, 0.85f, 1f);
         [SerializeField, Min(0.1f)] private float _pulseSpeed = 2.4f;
@@ -19,12 +21,21 @@ namespace Game.Entities.Power
 
         private Renderer[] _renderers;
         private MaterialPropertyBlock _block;
+        private Color[] _baseColors;
 
         protected override void Awake()
         {
             base.Awake();
             _renderers = GetComponentsInChildren<Renderer>();
             _block = new MaterialPropertyBlock();
+            _baseColors = new Color[_renderers.Length];
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                var material = _renderers[i].sharedMaterial;
+                _baseColors[i] = material != null && material.HasProperty(BaseColorId)
+                    ? material.GetColor(BaseColorId)
+                    : material != null && material.HasProperty(ColorId) ? material.GetColor(ColorId) : Color.white;
+            }
         }
 
         private void Update()
@@ -32,7 +43,7 @@ namespace Game.Entities.Power
             bool highlight = !IsHeld && !IsSocketed;
             float pulse = highlight ? 0.5f + 0.5f * Mathf.Sin(Time.time * _pulseSpeed) : 0f;
             float emission = highlight ? Mathf.Lerp(_emissionRange.x, _emissionRange.y, pulse) : _emissionRange.x;
-            SetEmission(_glowColor * emission);
+            SetGlow(_glowColor * emission, highlight ? Mathf.Lerp(0.18f, 0.72f, pulse) : 0f);
 
             if (_glowLight == null)
                 return;
@@ -41,12 +52,16 @@ namespace Game.Entities.Power
             _glowLight.intensity = _lightIntensity * Mathf.Lerp(0.4f, 1f, pulse);
         }
 
-        private void SetEmission(Color color)
+        private void SetGlow(Color emission, float tint)
         {
-            foreach (var target in _renderers)
+            for (int i = 0; i < _renderers.Length; i++)
             {
+                var target = _renderers[i];
                 target.GetPropertyBlock(_block);
-                _block.SetColor(EmissionId, color);
+                Color color = Color.Lerp(_baseColors[i], _glowColor, tint);
+                _block.SetColor(BaseColorId, color);
+                _block.SetColor(ColorId, color);
+                _block.SetColor(EmissionId, emission);
                 target.SetPropertyBlock(_block);
             }
         }
