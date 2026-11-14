@@ -1,0 +1,155 @@
+using UnityEngine;
+
+namespace Game.Entities.Environment
+{
+    /// <summary>
+    /// Procedural blood vessel the capsule sits in: a tube that narrows and bends away from the window,
+    /// closed at the far end. Rebuilt in the editor whenever a value changes, so it can be tuned in place.
+    /// Also exposes its centre line so blood cells can follow it.
+    /// </summary>
+    [ExecuteAlways]
+    [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
+    public sealed class VesselTunnel : MonoBehaviour
+    {
+        [SerializeField, Min(2f)] private float _length = 30f;
+        [SerializeField, Min(0.5f)] private float _startRadius = 4.2f;
+        [SerializeField, Min(0.5f)] private float _endRadius = 2.4f;
+        [Tooltip("Sideways offset of the far end, in metres.")]
+        [SerializeField] private float _bend = 7f;
+        [Tooltip("Vertical offset of the far end, in metres.")]
+        [SerializeField] private float _rise = 1.2f;
+        [Tooltip("Relative bumpiness of the wall.")]
+        [SerializeField, Range(0f, 0.3f)] private float _wobble = 0.08f;
+        [SerializeField, Range(8, 128)] private int _lengthSegments = 56;
+        [SerializeField, Range(8, 96)] private int _radialSegments = 40;
+
+        private Mesh _mesh;
+        private bool _dirty = true;
+
+        public float Length => _length;
+
+        public Vector3 GetPoint(float t) => transform.TransformPoint(LocalPoint(t));
+
+        public float GetRadius(float t) => Mathf.Lerp(_startRadius, _endRadius, t) * transform.lossyScale.x;
+
+        public void GetFrame(float t, out Vector3 tangent, out Vector3 right, out Vector3 up)
+        {
+            LocalFrame(t, out tangent, out right, out up);
+            tangent = transform.TransformDirection(tangent);
+            right = transform.TransformDirection(right);
+            up = transform.TransformDirection(up);
+        }
+
+        private void OnEnable() => _dirty = true;
+
+        private void OnValidate() => _dirty = true;
+
+        private void Update()
+        {
+            if (_dirty)
+                Rebuild();
+        }
+
+        private void OnDestroy()
+        {
+            if (_mesh == null)
+                return;
+
+            if (Application.isPlaying)
+                Destroy(_mesh);
+            else
+                DestroyImmediate(_mesh);
+        }
+
+        private Vector3 LocalPoint(float t) => new(_bend * t * t, _rise * t * t, _length * t);
+
+        private void LocalFrame(float t, out Vector3 tangent, out Vector3 right, out Vector3 up)
+        {
+            tangent = new Vector3(2f * _bend * t, 2f * _rise * t, _length).normalized;
+            right = Vector3.Cross(Vector3.up, tangent).normalized;
+            up = Vector3.Cross(tangent, right);
+        }
+
+        private void Rebuild()
+        {
+            _dirty = false;
+            if (_mesh == null)
+            {
+                _mesh = new Mesh { name = "Vessel Tunnel" };
+                _mesh.hideFlags = HideFlags.DontSave;
+                GetComponent<MeshFilter>().sharedMesh = _mesh;
+            }
+
+            int rings = _lengthSegments + 1;
+            int columns = _radialSegments + 1;
+            int capCenter = rings * columns;
+            var vertices = new Vector3[capCenter + 1 + columns];
+            var normals = new Vector3[vertices.Length];
+            var uvs = new Vector2[vertices.Length];
+            var triangles = new int[_lengthSegments * _radialSegments * 6 + _radialSegments * 3];
+
+            for (int i = 0; i < rings; i++)
+            {
+                float t = (float)i / _lengthSegments;
+                Vector3 center = LocalPoint(t);
+                LocalFrame(t, out _, out Vector3 right, out Vector3 up);
+                float radius = Mathf.Lerp(_startRadius, _endRadius, t);
+
+                for (int j = 0; j < columns; j++)
+                {
+                    float u = (float)j / _radialSegments;
+                    float angle = u * Mathf.PI * 2f;
+                    Vector3 direction = right * Mathf.Cos(angle) + up * Mathf.Sin(angle);
+                    float bump = 1f + _wobble * (Mathf.Sin(t * 23f + angle * 3f) * 0.6f + Mathf.Sin(t * 51f - angle * 5f) * 0.4f);
+                    int index = i * columns + j;
+                    vertices[index] = center + direction * radius * bump;
+                    normals[index] = -direction;
+                    uvs[index] = new Vector2(u, t * _length);
+                }
+            }
+
+            int tri = 0;
+            for (int i = 0; i < _lengthSegments; i++)
+            {
+                for (int j = 0; j < _radialSegments; j++)
+                {
+                    int a = i * columns + j;
+                    int b = a + columns;
+                    triangles[tri++] = a;
+                    triangles[tri++] = a + 1;
+                    triangles[tri++] = b;
+                    triangles[tri++] = b;
+                    triangles[tri++] = a + 1;
+                    triangles[tri++] = b + 1;
+                }
+            }
+
+            // Far-end cap so nothing beyond the vessel shows through.
+            LocalFrame(1f, out Vector3 endTangent, out _, out _);
+            vertices[capCenter] = LocalPoint(1f);
+            normals[capCenter] = -endTangent;
+            uvs[capCenter] = new Vector2(0.5f, _length);
+            int lastRing = (rings - 1) * columns;
+            for (int j = 0; j < columns; j++)
+            {
+                vertices[capCenter + 1 + j] = vertices[lastRing + j];
+                normals[capCenter + 1 + j] = -endTangent;
+                uvs[capCenter + 1 + j] = uvs[lastRing + j];
+            }
+
+            for (int j = 0; j < _radialSegments; j++)
+            {
+                triangles[tri++] = capCenter;
+                triangles[tri++] = capCenter + 1 + j;
+                triangles[tri++] = capCenter + 2 + j;
+            }
+
+            _mesh.Clear();
+            _mesh.vertices = vertices;
+            _mesh.normals = normals;
+            _mesh.uv = uvs;
+            _mesh.triangles = triangles;
+            _mesh.RecalculateBounds();
+        }
+    }
+}
