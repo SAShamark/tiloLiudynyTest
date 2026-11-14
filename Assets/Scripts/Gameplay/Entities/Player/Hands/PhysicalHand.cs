@@ -6,37 +6,24 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
-using Object = UnityEngine.Object;
-
 namespace Gameplay.Entities.Player.Hands
 {
-    internal readonly struct PhysicalHandSettings
+    public sealed class PhysicalHand : MonoBehaviour
     {
-        public readonly float FollowStrength;
-        public readonly float SnapDistance;
-        public readonly float FingerRadius;
-        public readonly float ReleaseGrace;
+        private const float LockDistance = 0.08f;
 
-        public PhysicalHandSettings(float followStrength, float snapDistance, float fingerRadius, float releaseGrace)
-        {
-            FollowStrength = followStrength;
-            SnapDistance = snapDistance;
-            FingerRadius = fingerRadius;
-            ReleaseGrace = releaseGrace;
-        }
-    }
+        [SerializeField] private XRNode _node;
+        [SerializeField] private Rigidbody _body;
+        [SerializeField] private GameObject _visual;
+        [SerializeField] private Transform _wrist;
+        [Tooltip("Hand colliders; the first one is the palm.")]
+        [SerializeField] private Collider[] _colliders;
+        [SerializeField] private HandFinger[] _fingers;
 
-    internal sealed class PhysicalHand
-    {
-        private readonly PhysicalHandSettings _settings;
-        private readonly XRNode _node;
-        private readonly Transform _controller;
-        private readonly Rigidbody _body;
-        private readonly GameObject _visual;
-        private readonly HandFinger[] _fingers;
-        private readonly Collider[] _colliders;
-        private readonly XRBaseInteractor[] _interactors;
-        private readonly List<InputDevice> _devices = new List<InputDevice>();
+        private readonly List<InputDevice> _devices = new();
+        private PhysicalHandSettings _settings;
+        private Transform _controller;
+        private XRBaseInteractor[] _interactors;
         private InputDevice _device;
         private float _grip;
         private float _trigger;
@@ -48,22 +35,22 @@ namespace Gameplay.Entities.Player.Hands
         private Collider[] _releasedColliders = Array.Empty<Collider>();
         private float _releaseTimer;
         private bool _locked;
-        private const float LockDistance = 0.08f;
 
-        public Transform Wrist { get; set; }
+        public Transform Wrist => _wrist;
         public bool IsVisible => _visual.activeInHierarchy;
+        public IReadOnlyList<Collider> Colliders => _colliders;
 
-        public PhysicalHand(PhysicalHandSettings settings, XRNode node, Transform controller, Rigidbody body, GameObject visual,
-            HandFinger[] fingers, Collider[] colliders, XRBaseInteractor[] interactors)
+        public void Initialize(PhysicalHandSettings settings, Transform controller, XRBaseInteractor[] interactors)
         {
             _settings = settings;
-            _node = node;
             _controller = controller;
-            _body = body;
-            _visual = visual;
-            _fingers = fingers;
-            _colliders = colliders;
             _interactors = interactors;
+            _body.transform.SetPositionAndRotation(controller.position, controller.rotation);
+            foreach (var finger in _fingers)
+            {
+                finger.Initialize();
+            }
+
             foreach (var interactor in _interactors)
             {
                 interactor.selectEntered.AddListener(HandleSelectEntered);
@@ -78,14 +65,12 @@ namespace Gameplay.Entities.Player.Hands
                 interactor.selectEntered.RemoveListener(HandleSelectEntered);
                 interactor.selectExited.RemoveListener(HandleSelectExited);
             }
-
-            Object.Destroy(_body.gameObject);
         }
 
         public void IgnoreOtherHand(PhysicalHand other)
         {
             foreach (var mine in _colliders)
-            foreach (var theirs in other._colliders)
+            foreach (var theirs in other.Colliders)
                 Physics.IgnoreCollision(mine, theirs, true);
         }
 

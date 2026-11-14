@@ -5,7 +5,6 @@ namespace Gameplay.Effects
     public sealed class EffectPlayer : MonoBehaviour
     {
         [SerializeField] private bool _loop;
-        [Tooltip("Playback speed of the whole effect; stock effects are often slow for close-up VR.")]
         [SerializeField, Min(0.1f)] private float _speed = 1.5f;
 
         private ParticleSystem[] _systems;

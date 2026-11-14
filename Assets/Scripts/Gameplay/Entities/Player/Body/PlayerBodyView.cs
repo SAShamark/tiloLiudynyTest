@@ -11,19 +11,13 @@ namespace Gameplay.Entities.Player.Body
         private static readonly int WalkRateParameter = Animator.StringToHash("WalkRate");
 
         [SerializeField] private Animator _animator;
-        [Tooltip("How far the body stands behind the eyes, so looking down shows the chest and feet, not the inside.")]
         [SerializeField, Min(0f)] private float _backOffset = 0.13f;
-        [Tooltip("Head yaw away from the body (degrees) that makes the body turn to catch up.")]
         [SerializeField, Range(10f, 120f)] private float _turnThreshold = 45f;
         [SerializeField, Min(0.5f)] private float _turnSpeed = 6f;
-        [Tooltip("Walking speed (m/s) at which the walk clip plays at normal speed.")]
         [SerializeField, Min(0.1f)] private float _clipWalkSpeed = 1.1f;
-        [Tooltip("Speeds (m/s) at which the strafe and backward clips play at normal speed.")]
         [SerializeField, Min(0.1f)] private float _clipStrafeSpeed = 0.9f;
         [SerializeField, Min(0.1f)] private float _clipBackSpeed = 0.9f;
-        [Tooltip("Eye height of the model at scale 1, used to fit the body to the player's height.")]
         [SerializeField, Min(0.5f)] private float _modelEyeHeight = 1.62f;
-        [Tooltip("Below this share of the standing eye height (crouching) the body is hidden to keep it out of the face.")]
         [SerializeField, Range(0.3f, 0.95f)] private float _hideBelow = 0.72f;
 
         private PlayerRig _rig;

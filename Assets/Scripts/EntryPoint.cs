@@ -8,7 +8,6 @@ public class EntryPoint : MonoBehaviour
     [SerializeField] private GameManager _gameManager;
 
     [Header("System")]
-    [Tooltip("Headset refresh rate (Hz). Physics runs at the same rate so held items and hands move smoothly.")]
     [SerializeField] private float _refreshRate = 72f;
 
     private void Awake()

@@ -1,54 +1,29 @@
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 namespace Gameplay.Entities.Player.Hands
 {
-    internal sealed class HandFinger
+    [Serializable]
+    public sealed class HandFinger
     {
         private const int FitSteps = 24;
 
-        private readonly Transform[] _joints;
-        private readonly Quaternion[] _rest;
-        private readonly Vector3[] _axes;
-        private readonly float[] _maxCurl;
-        private readonly Transform _tip;
-        private readonly bool _isIndex;
+        [SerializeField] private Transform[] _joints;
+        [SerializeField] private Transform _tip;
+        [SerializeField] private Vector3[] _axes;
+        [SerializeField] private float[] _maxCurl;
+        [SerializeField] private bool _isIndex;
+
+        private Quaternion[] _rest;
         private float _amount;
         private float _fitted = 1f;
 
-        public HandFinger(Transform[] joints, Transform tip, Vector3 curlAxisWorld, bool isThumb, bool isIndex)
+        public void Initialize()
         {
-            _joints = joints;
-            _tip = tip;
-            _isIndex = isIndex;
-            _rest = new Quaternion[joints.Length];
-            _axes = new Vector3[joints.Length];
-            _maxCurl = new float[joints.Length];
-            for (int i = 0; i < joints.Length; i++)
-            {
-                _rest[i] = joints[i].localRotation;
-                _axes[i] = joints[i].InverseTransformDirection(curlAxisWorld);
-                _maxCurl[i] = isThumb ? 28f : i == 0 ? 70f : 78f;
-            }
-        }
-
-        public IEnumerable<Collider> CreateColliders(float radius, int layer)
-        {
+            _rest = new Quaternion[_joints.Length];
             for (int i = 0; i < _joints.Length; i++)
             {
-                Vector3 end = i + 1 < _joints.Length ? _joints[i + 1].position : TipPosition();
-                var holder = new GameObject(_joints[i].name + " collider");
-                holder.layer = layer;
-                holder.transform.SetParent(_joints[i], false);
-                var capsule = holder.AddComponent<CapsuleCollider>();
-                Vector3 localEnd = _joints[i].InverseTransformPoint(end);
-                float length = localEnd.magnitude;
-                capsule.direction = DominantAxis(localEnd);
-                capsule.center = localEnd * 0.5f;
-                float scale = _joints[i].lossyScale.x;
-                capsule.radius = radius / Mathf.Max(scale, 0.0001f);
-                capsule.height = length + capsule.radius * 2f;
-                yield return capsule;
+                _rest[i] = _joints[i].localRotation;
             }
         }
 
@@ -116,11 +91,5 @@ namespace Gameplay.Entities.Player.Hands
 
         private static bool SupportsClosestPoint(Collider collider) =>
             collider is not MeshCollider mesh || mesh.convex;
-
-        private static int DominantAxis(Vector3 vector)
-        {
-            Vector3 absolute = new Vector3(Mathf.Abs(vector.x), Mathf.Abs(vector.y), Mathf.Abs(vector.z));
-            return absolute.x >= absolute.y && absolute.x >= absolute.z ? 0 : absolute.y >= absolute.z ? 1 : 2;
-        }
     }
 }

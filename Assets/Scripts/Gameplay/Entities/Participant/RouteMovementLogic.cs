@@ -6,6 +6,7 @@ namespace Gameplay.Entities.Participant
     [Serializable]
     public class RouteMovementLogic
     {
+        [SerializeField] private float _speed = 0.65f;
         [SerializeField] private float _turnSpeed = 240f;
         [SerializeField] private float _startDelay = 2f;
         [SerializeField] private Vector3[] _route =
@@ -17,16 +18,14 @@ namespace Gameplay.Entities.Participant
         };
 
         private Transform _body;
-        private float _speed;
         private float _delayLeft;
         private int _nextPoint;
 
         public float CurrentSpeed { get; private set; }
 
-        public void Initialize(Transform body, float speed)
+        public void Initialize(Transform body)
         {
             _body = body;
-            _speed = speed;
             _delayLeft = _startDelay;
             _nextPoint = 1 % _route.Length;
             _body.SetPositionAndRotation(_route[0], Quaternion.LookRotation(_route[_nextPoint] - _route[0]));

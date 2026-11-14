@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Gameplay.Entities.Player;
 using UnityEngine;
@@ -5,20 +6,24 @@ using UnityEngine.XR.Hands;
 
 namespace UI.Settings
 {
+    [Serializable]
     public sealed class PalmMenuGesture
     {
-        private const float HoldDuration = 0.55f;
+        [SerializeField, Min(0f)] private float _holdDuration = 0.55f;
+        [SerializeField, Min(0f)] private float _minHandLength = 0.114f;
+        [SerializeField, Min(0f)] private float _minThumbSpread = 0.06f;
+        [SerializeField, Min(0f)] private float _maxPalmDistance = 0.7f;
+        [SerializeField, Range(0f, 1f)] private float _fingersUp = 0.55f;
+        [SerializeField, Range(0f, 1f)] private float _palmInView = 0.65f;
+        [SerializeField, Range(0f, 1f)] private float _palmFacing = 0.65f;
 
         private readonly List<XRHandSubsystem> _subsystems = new();
-        private readonly PlayerRig _rig;
+        private PlayerRig _rig;
         private XRHandSubsystem _hands;
         private float _heldTime;
         private bool _triggered;
 
-        public PalmMenuGesture(PlayerRig rig)
-        {
-            _rig = rig;
-        }
+        public void Initialize(PlayerRig rig) => _rig = rig;
 
         public bool Tick(float deltaTime)
         {
@@ -36,8 +41,10 @@ namespace UI.Settings
             }
 
             _heldTime += deltaTime;
-            if (_triggered || _heldTime < HoldDuration)
+            if (_triggered || _heldTime < _holdDuration)
+            {
                 return false;
+            }
 
             _triggered = true;
             return true;
@@ -52,19 +59,21 @@ namespace UI.Settings
                 !hand.GetJoint(XRHandJointID.LittleTip).TryGetPose(out Pose little) ||
                 !hand.GetJoint(XRHandJointID.ThumbTip).TryGetPose(out Pose thumb) ||
                 !hand.GetJoint(XRHandJointID.Palm).TryGetPose(out Pose palm))
+            {
                 return false;
+            }
 
             Transform trackingSpace = _rig.TrackingSpace;
             Transform head = _rig.Head;
             Vector3 toPalm = trackingSpace.TransformPoint(palm.position) - head.position;
             Vector3 fingers = middle.position - wrist.position;
             Vector3 normal = Vector3.Cross(index.position - little.position, fingers).normalized;
-            return fingers.sqrMagnitude > 0.013f
-                && (index.position - thumb.position).sqrMagnitude > 0.0036f
-                && Vector3.Dot(trackingSpace.TransformDirection(fingers.normalized), Vector3.up) > 0.55f
-                && Vector3.Dot(head.forward, toPalm.normalized) > 0.65f
-                && Mathf.Abs(Vector3.Dot(trackingSpace.TransformDirection(normal), toPalm.normalized)) > 0.65f
-                && toPalm.sqrMagnitude < 0.49f;
+            return fingers.sqrMagnitude > _minHandLength * _minHandLength
+                && (index.position - thumb.position).sqrMagnitude > _minThumbSpread * _minThumbSpread
+                && toPalm.sqrMagnitude < _maxPalmDistance * _maxPalmDistance
+                && Vector3.Dot(trackingSpace.TransformDirection(fingers.normalized), Vector3.up) > _fingersUp
+                && Vector3.Dot(head.forward, toPalm.normalized) > _palmInView
+                && Mathf.Abs(Vector3.Dot(trackingSpace.TransformDirection(normal), toPalm.normalized)) > _palmFacing;
         }
     }
 }

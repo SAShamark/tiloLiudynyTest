@@ -41,11 +41,8 @@ namespace UI.Settings
         [SerializeField] private Vector2 _smoothRange = new(30f, 180f);
 
         [Header("Participant & safety")]
-        [Tooltip("On = participant stands idle, Off = participant walks the route.")]
         [SerializeField] private ToggleRow _participantIdle;
-        [Tooltip("On = proximity warnings also during stick movement.")]
         [SerializeField] private ToggleRow _stickWarnings;
-        [Tooltip("On = show the player's own body.")]
         [SerializeField] private ToggleRow _showBody;
 
         [Header("Height")]

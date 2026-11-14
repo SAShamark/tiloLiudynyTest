@@ -1,9 +1,8 @@
 using System;
-using Gameplay.Entities.Environment;
-using Gameplay.Entities.Interactive.Other.Organs;
-using Gameplay.Entities.Interactive.Other.Lab;
-using Gameplay.Entities.Interactive.Other.Station;
-using Gameplay.Entities.Interactive.Other.Power;
+using Gameplay.Entities.Interactive.Organs;
+using Gameplay.Entities.Interactive.Lab;
+using Gameplay.Entities.Interactive.Station;
+using Gameplay.Entities.Interactive.Power;
 using Gameplay.Entities.Participant;
 using Gameplay.Entities.Player;
 using UnityEngine;
@@ -31,9 +30,11 @@ namespace Gameplay
 
         private OrganSelectionController _organSelection;
 
+        public ParticipantControl Participant => _participant;
+
         public void Initialize(PlayerControl player)
         {
-            _participant.Initialize(player.Rig, player.Settings);
+            _participant.Initialize(player.Rig);
 
             _heartStation.Initialize(_probe, _powerUnit, _participant);
             foreach (var monitor in _ecgMonitors)
@@ -50,7 +51,7 @@ namespace Gameplay
 
         public void Dispose()
         {
-            _organSelection?.Dispose();
+            _organSelection.Dispose();
         }
     }
 }
