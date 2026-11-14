@@ -1,3 +1,4 @@
+using Game.Entities.Environment;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
@@ -23,6 +24,9 @@ namespace Game.Entities.Station
         [SerializeField, Min(0f)] private float _fillDelay = 0.3f;
         [SerializeField, Min(0.1f)] private float _fillDuration = 2.5f;
         [SerializeField, Min(0.1f)] private float _unfillDuration = 1f;
+
+        [Tooltip("Optional burst played when the projection appears.")]
+        [SerializeField] private EffectPlayer _appearEffect;
 
         [Header("Light")]
         [Tooltip("Optional light cast by the projection; follows its visibility and flickers with it.")]
@@ -80,6 +84,8 @@ namespace Game.Entities.Station
                 return;
 
             _visible = true;
+            if (_appearEffect != null)
+                _appearEffect.Play();
             _fill = 0f;
             _untilFill = _fillDelay;
             _untilIdleGlitch = Random.Range(_idleGlitchInterval.x, _idleGlitchInterval.y);

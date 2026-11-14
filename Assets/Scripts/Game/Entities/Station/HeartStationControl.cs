@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Environment;
 using Game.Entities.Organs;
 using Game.Entities.Power;
 using Game.Entities.Station.Parts;
@@ -29,6 +30,8 @@ namespace Game.Entities.Station
         [SerializeField] private XRSocketInteractor _flaskSocket;
         [SerializeField] private OrganProjector _projector;
         [SerializeField] private HeartPulseLoop _pulse = new();
+        [Tooltip("Looping effect under the projection while the station runs.")]
+        [SerializeField] private EffectPlayer _activeEffect;
 
         private Probe _probe;
         private PowerUnit _powerUnit;
@@ -125,6 +128,15 @@ namespace Game.Entities.Station
 
         private void RefreshPulse()
         {
+            bool running = State == StationState.Active && SelectedOrgan != null;
+            if (_activeEffect != null && running != _activeEffect.IsPlaying)
+            {
+                if (running)
+                    _activeEffect.Play();
+                else
+                    _activeEffect.Stop();
+            }
+
             _projector.SetMaterialized(State == StationState.Active && SelectedOrgan != null);
             if (State == StationState.Active)
                 _pulse.Start(SelectedOrgan != null && SelectedOrgan.Beats);

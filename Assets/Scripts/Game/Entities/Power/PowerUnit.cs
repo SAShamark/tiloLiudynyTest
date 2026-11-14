@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Environment;
 using Services.Audio;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -21,6 +22,7 @@ namespace Game.Entities.Power
         [SerializeField] private Color _barOffColor = new(0.08f, 0.1f, 0.12f);
         [SerializeField] private Color _barOnColor = new(0.25f, 1f, 0.45f);
         [SerializeField, Min(0.05f)] private float _barFillInterval = 0.18f;
+        [SerializeField] private EffectPlayer _poweredEffect;
 
         private MaterialPropertyBlock _block;
         private AudioSource _audio;
@@ -109,6 +111,8 @@ namespace Game.Entities.Power
         private void SetPowered(bool powered)
         {
             IsPowered = powered;
+            if (powered && _poweredEffect != null)
+                _poweredEffect.Play();
             OnPoweredChanged?.Invoke(powered);
         }
 
