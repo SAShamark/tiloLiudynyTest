@@ -1,4 +1,4 @@
-using Gameplay.Entities.Interactive.Station;
+using Gameplay.Entities.Interactive.Other.Station;
 using TMPro;
 using UnityEngine;
 
@@ -55,6 +55,9 @@ namespace Gameplay.Entities.Environment
 
         private void OnDestroy()
         {
+            if (ReferenceEquals(_station, null))
+                return;
+
             _station.StateChanged -= HandleStateChanged;
             _station.Shocked -= HandleShocked;
         }

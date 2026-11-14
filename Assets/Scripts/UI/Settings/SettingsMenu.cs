@@ -49,19 +49,17 @@ namespace UI.Settings
         public LocomotionLogic Locomotion { get; private set; }
         public bool ParticipantIdle => _participantIdle;
         public bool StickWarnings => _stickWarnings;
+        public bool ShowBody => _showBody;
 
         public event Action<bool> ParticipantIdleChanged;
         public event Action<bool> StickWarningsChanged;
-        public bool ShowBody => _showBody;
         public event Action<bool> ShowBodyChanged;
 
         public void Initialize(PlayerRig rig)
         {
-            var move = rig.FindInRig<ContinuousMoveProvider>();
-            var teleport = rig.FindInRig<TeleportationProvider>();
-
             _rig = rig;
-            Locomotion = new LocomotionLogic(rig.Head, _floor, _vignettePrefab, move, teleport,
+            Locomotion = new LocomotionLogic(rig.Head, _floor, _vignettePrefab,
+                rig.FindInRig<ContinuousMoveProvider>(), rig.FindInRig<TeleportationProvider>(),
                 rig.FindInRig<SnapTurnProvider>(), rig.FindInRig<ContinuousTurnProvider>(),
                 rig.FindAllInRig<ControllerInputActionManager>(), rig.FindAllInRig<InteractionAttachController>());
             Locomotion.SetSnapDelay(_snapDelay);
@@ -69,27 +67,30 @@ namespace UI.Settings
             Locomotion.SetSmoothTurnSpeed(_smoothTurnSpeed);
 
             _view.Initialize(rig.Camera, DefaultVignette);
-            _view.ModeSelected += HandleModeSelected;
-            _view.VignetteChanged += HandleVignetteChanged;
+            _view.ModeSelected += Locomotion.SetMode;
+            _view.VignetteChanged += Locomotion.SetVignetteStrength;
             _view.TurnModeSelected += HandleTurnModeSelected;
             _view.TurnAmountChanged += HandleTurnAmountChanged;
-            _view.ReturnClicked += ReturnToStart;
-            _view.CloseClicked += Close;
             _view.ParticipantIdleSelected += HandleParticipantIdleSelected;
             _view.StickWarningsSelected += HandleStickWarningsSelected;
+            _view.ShowBodySelected += HandleShowBodySelected;
+            _view.HeightChanged += HandleHeightChanged;
+            _view.ReturnClicked += ReturnToStart;
+            _view.CloseClicked += Close;
+
             _view.ShowParticipantIdle(_participantIdle);
             _view.ShowStickWarnings(_stickWarnings);
-            _view.ShowBodySelected += HandleShowBodySelected;
             _view.ShowBody(_showBody);
-            _view.HeightChanged += HandleHeightChanged;
+            _view.ShowHeight(_heightOffset);
             HandleHeightChanged(_heightOffset);
 
             _palmGesture = new PalmMenuGesture(rig);
             _toggleMenu = new InputAction(type: InputActionType.Button, binding: "<XRController>{LeftHand}/primaryButton");
             _toggleMenu.Enable();
 
-            HandleModeSelected(MovementMode.Stick);
-            HandleVignetteChanged(DefaultVignette);
+            _view.ShowMode(MovementMode.Stick);
+            Locomotion.SetMode(MovementMode.Stick);
+            Locomotion.SetVignetteStrength(DefaultVignette);
             HandleTurnModeSelected(_defaultTurnMode);
         }
 
@@ -107,22 +108,21 @@ namespace UI.Settings
         private void OnDestroy()
         {
             _toggleMenu.Dispose();
-            _view.ModeSelected -= HandleModeSelected;
-            _view.VignetteChanged -= HandleVignetteChanged;
+            _view.ModeSelected -= Locomotion.SetMode;
+            _view.VignetteChanged -= Locomotion.SetVignetteStrength;
             _view.TurnModeSelected -= HandleTurnModeSelected;
             _view.TurnAmountChanged -= HandleTurnAmountChanged;
-            _view.ReturnClicked -= ReturnToStart;
-            _view.CloseClicked -= Close;
             _view.ParticipantIdleSelected -= HandleParticipantIdleSelected;
             _view.StickWarningsSelected -= HandleStickWarningsSelected;
             _view.ShowBodySelected -= HandleShowBodySelected;
             _view.HeightChanged -= HandleHeightChanged;
+            _view.ReturnClicked -= ReturnToStart;
+            _view.CloseClicked -= Close;
         }
 
         private void HandleHeightChanged(float centimetres)
         {
             _heightOffset = centimetres;
-            _view.ShowHeight(centimetres);
             float wanted = centimetres * 0.01f;
             Transform space = _rig.TrackingSpace;
             Vector3 position = space.localPosition;
@@ -134,22 +134,39 @@ namespace UI.Settings
         private void HandleShowBodySelected(bool visible)
         {
             _showBody = visible;
-            _view.ShowBody(visible);
             ShowBodyChanged?.Invoke(visible);
         }
 
         private void HandleParticipantIdleSelected(bool idle)
         {
             _participantIdle = idle;
-            _view.ShowParticipantIdle(idle);
             ParticipantIdleChanged?.Invoke(idle);
         }
 
         private void HandleStickWarningsSelected(bool enabled)
         {
             _stickWarnings = enabled;
-            _view.ShowStickWarnings(enabled);
             StickWarningsChanged?.Invoke(enabled);
+        }
+
+        private void HandleTurnModeSelected(TurnMode mode)
+        {
+            Locomotion.SetTurnMode(mode);
+            _view.ShowTurn(mode, mode == TurnMode.Snap ? _snapAngle : _smoothTurnSpeed);
+        }
+
+        private void HandleTurnAmountChanged(float amount)
+        {
+            if (Locomotion.Turn == TurnMode.Snap)
+            {
+                _snapAngle = amount;
+                Locomotion.SetSnapAngle(amount);
+            }
+            else
+            {
+                _smoothTurnSpeed = amount;
+                Locomotion.SetSmoothTurnSpeed(amount);
+            }
         }
 
         private void SetOpen(bool open)
@@ -174,38 +191,6 @@ namespace UI.Settings
         {
             _rig.ReturnToStart();
             SetOpen(false);
-        }
-
-        private void HandleModeSelected(MovementMode mode)
-        {
-            _view.ShowMode(mode);
-            Locomotion.SetMode(mode);
-        }
-
-        private void HandleTurnModeSelected(TurnMode mode)
-        {
-            Locomotion.SetTurnMode(mode);
-            _view.ShowTurn(mode, mode == TurnMode.Snap ? _snapAngle : _smoothTurnSpeed);
-        }
-
-        private void HandleTurnAmountChanged(float amount)
-        {
-            if (Locomotion.Turn == TurnMode.Snap)
-            {
-                _snapAngle = amount;
-                Locomotion.SetSnapAngle(amount);
-            }
-            else
-            {
-                _smoothTurnSpeed = amount;
-                Locomotion.SetSmoothTurnSpeed(amount);
-            }
-        }
-
-        private void HandleVignetteChanged(float percent)
-        {
-            _view.ShowVignetteStrength(percent);
-            Locomotion.SetVignetteStrength(percent);
         }
     }
 }

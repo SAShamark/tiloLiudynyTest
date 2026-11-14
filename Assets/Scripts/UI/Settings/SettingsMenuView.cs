@@ -9,17 +9,9 @@ namespace UI.Settings
     public sealed class SettingsMenuView : MonoBehaviour
     {
         [Serializable]
-        private sealed class ModeButton
+        private sealed class OptionButton<T>
         {
-            public MovementMode Mode;
-            public Button Button;
-            public Image Background;
-        }
-
-        [Serializable]
-        private sealed class TurnButton
-        {
-            public TurnMode Mode;
+            public T Mode;
             public Button Button;
             public Image Background;
         }
@@ -34,13 +26,13 @@ namespace UI.Settings
         }
 
         [SerializeField] private Canvas _canvas;
-        [SerializeField] private ModeButton[] _modeButtons;
+        [SerializeField] private OptionButton<MovementMode>[] _modeButtons;
         [SerializeField] private Slider _vignetteSlider;
         [SerializeField] private TMP_Text _vignetteLabel;
         [SerializeField] private string _vignetteFormat = "Stick vignette  {0:0}%";
 
         [Header("Turning")]
-        [SerializeField] private TurnButton[] _turnButtons;
+        [SerializeField] private OptionButton<TurnMode>[] _turnButtons;
         [SerializeField] private Slider _turnSlider;
         [SerializeField] private TMP_Text _turnLabel;
         [SerializeField] private string _snapFormat = "Snap angle  {0:0}°";
@@ -90,7 +82,11 @@ namespace UI.Settings
             foreach (var modeButton in _modeButtons)
             {
                 MovementMode mode = modeButton.Mode;
-                modeButton.Button.onClick.AddListener(() => ModeSelected?.Invoke(mode));
+                modeButton.Button.onClick.AddListener(() =>
+                {
+                    ShowMode(mode);
+                    ModeSelected?.Invoke(mode);
+                });
             }
 
             foreach (var turnButton in _turnButtons)
@@ -99,18 +95,30 @@ namespace UI.Settings
                 turnButton.Button.onClick.AddListener(() => TurnModeSelected?.Invoke(mode));
             }
 
-            _vignetteSlider.SetValueWithoutNotify(initialVignette);
-            _vignetteSlider.onValueChanged.AddListener(HandleVignetteChanged);
-            _turnSlider.wholeNumbers = true;
-            _turnSlider.onValueChanged.AddListener(HandleTurnAmountChanged);
-            _returnButton.onClick.AddListener(HandleReturnClicked);
-            _closeButton.onClick.AddListener(HandleCloseClicked);
             Bind(_participantIdle, value => ParticipantIdleSelected?.Invoke(value));
             Bind(_stickWarnings, value => StickWarningsSelected?.Invoke(value));
             Bind(_showBody, value => ShowBodySelected?.Invoke(value));
-            _heightSlider.wholeNumbers = true;
-            _heightSlider.onValueChanged.AddListener(HandleHeightChanged);
 
+            _vignetteSlider.SetValueWithoutNotify(initialVignette);
+            _vignetteSlider.onValueChanged.AddListener(value =>
+            {
+                ShowVignetteStrength(value);
+                VignetteChanged?.Invoke(value);
+            });
+            _turnSlider.wholeNumbers = true;
+            _turnSlider.onValueChanged.AddListener(value =>
+            {
+                ShowTurnAmount(value);
+                TurnAmountChanged?.Invoke(value);
+            });
+            _heightSlider.wholeNumbers = true;
+            _heightSlider.onValueChanged.AddListener(value =>
+            {
+                ShowHeight(value);
+                HeightChanged?.Invoke(value);
+            });
+            _returnButton.onClick.AddListener(() => ReturnClicked?.Invoke());
+            _closeButton.onClick.AddListener(() => CloseClicked?.Invoke());
 
             ShowVignetteStrength(initialVignette);
             gameObject.SetActive(false);
@@ -129,8 +137,6 @@ namespace UI.Settings
             foreach (var modeButton in _modeButtons)
                 modeButton.Background.color = modeButton.Mode == mode ? _selectedColor : _normalColor;
         }
-
-        public void ShowVignetteStrength(float percent) => _vignetteLabel.text = string.Format(_vignetteFormat, percent);
 
         public void ShowTurn(TurnMode mode, float amount)
         {
@@ -157,22 +163,16 @@ namespace UI.Settings
             _heightLabel.text = string.Format(_heightFormat, centimetres);
         }
 
-        private void HandleHeightChanged(float centimetres)
+        private void Bind(ToggleRow row, Action<bool> onSelected)
         {
-            ShowHeight(centimetres);
-            HeightChanged?.Invoke(centimetres);
-        }
+            row.OnButton.onClick.AddListener(() => Select(true));
+            row.OffButton.onClick.AddListener(() => Select(false));
 
-        private static void Bind(ToggleRow row, Action<bool> onSelected)
-        {
-            row.OnButton.onClick.AddListener(() => onSelected(true));
-            row.OffButton.onClick.AddListener(() => onSelected(false));
-        }
-
-        private static void Unbind(ToggleRow row)
-        {
-            row.OnButton.onClick.RemoveAllListeners();
-            row.OffButton.onClick.RemoveAllListeners();
+            void Select(bool on)
+            {
+                ShowToggle(row, on);
+                onSelected(on);
+            }
         }
 
         private void ShowToggle(ToggleRow row, bool on)
@@ -181,36 +181,9 @@ namespace UI.Settings
             row.OffBackground.color = on ? _normalColor : _selectedColor;
         }
 
+        private void ShowVignetteStrength(float percent) => _vignetteLabel.text = string.Format(_vignetteFormat, percent);
+
         private void ShowTurnAmount(float amount) =>
             _turnLabel.text = string.Format(_turnMode == TurnMode.Snap ? _snapFormat : _smoothFormat, amount);
-
-        private void OnDestroy()
-        {
-            foreach (var modeButton in _modeButtons)
-                modeButton.Button.onClick.RemoveAllListeners();
-            foreach (var turnButton in _turnButtons)
-                turnButton.Button.onClick.RemoveAllListeners();
-
-            _vignetteSlider.onValueChanged.RemoveListener(HandleVignetteChanged);
-            _turnSlider.onValueChanged.RemoveListener(HandleTurnAmountChanged);
-            _returnButton.onClick.RemoveListener(HandleReturnClicked);
-            _closeButton.onClick.RemoveListener(HandleCloseClicked);
-            Unbind(_participantIdle);
-            Unbind(_stickWarnings);
-            Unbind(_showBody);
-            _heightSlider.onValueChanged.RemoveListener(HandleHeightChanged);
-        }
-
-        private void HandleVignetteChanged(float value) => VignetteChanged?.Invoke(value);
-
-        private void HandleTurnAmountChanged(float value)
-        {
-            ShowTurnAmount(value);
-            TurnAmountChanged?.Invoke(value);
-        }
-
-        private void HandleReturnClicked() => ReturnClicked?.Invoke();
-
-        private void HandleCloseClicked() => CloseClicked?.Invoke();
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using Services.Audio;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -18,12 +17,9 @@ namespace Gameplay.Entities.Participant
         [SerializeField] private ProximityZoneRing _zoneRing;
 
         private Material _vignetteMaterial;
-        private AudioClip _alarmClip;
 
         public void Initialize(float zoneRadius)
         {
-            _alarmClip = ProceduralTones.CreateTwoToneAlarm("Participant proximity alarm");
-            _alarm.clip = _alarmClip;
             _vignetteMaterial = _vignette.material;
             _vignette.gameObject.SetActive(false);
             _zoneRing.Initialize(zoneRadius);
@@ -64,7 +60,6 @@ namespace Gameplay.Entities.Participant
         public void Dispose()
         {
             Object.Destroy(_vignetteMaterial);
-            Object.Destroy(_alarmClip);
         }
     }
 }

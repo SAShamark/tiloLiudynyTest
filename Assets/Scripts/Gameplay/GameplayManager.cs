@@ -1,9 +1,9 @@
 using System;
 using Gameplay.Entities.Environment;
-using Gameplay.Entities.Interactive.Lab;
-using Gameplay.Entities.Interactive.Organs;
-using Gameplay.Entities.Interactive.Power;
-using Gameplay.Entities.Interactive.Station;
+using Gameplay.Entities.Interactive.Other.Organs;
+using Gameplay.Entities.Interactive.Other.Lab;
+using Gameplay.Entities.Interactive.Other.Station;
+using Gameplay.Entities.Interactive.Other.Power;
 using Gameplay.Entities.Participant;
 using Gameplay.Entities.Player;
 using UnityEngine;
@@ -50,7 +50,7 @@ namespace Gameplay
 
         public void Dispose()
         {
-            _organSelection.Dispose();
+            _organSelection?.Dispose();
         }
     }
 }

@@ -1,4 +1,3 @@
-using Services.Audio;
 using UnityEngine;
 
 namespace Gameplay.Effects
@@ -6,20 +5,10 @@ namespace Gameplay.Effects
     public sealed class SparkBurst : MonoBehaviour
     {
         [SerializeField] private AudioSource _audio;
+        [SerializeField] private AudioClip _crackle;
         [SerializeField] private ParticleSystem _sparks;
         [SerializeField, Range(0f, 1f)] private float _volume = 0.35f;
         [SerializeField, Range(0.5f, 2f)] private float _pitch = 1.5f;
-        private AudioClip _crackle;
-
-        private void Awake()
-        {
-            _crackle = ProceduralTones.CreateZap("Spark crackle");
-        }
-
-        private void OnDestroy()
-        {
-            Destroy(_crackle);
-        }
 
         public void Play()
         {
