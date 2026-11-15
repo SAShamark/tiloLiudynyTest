@@ -8,6 +8,8 @@ namespace Gameplay.Entities.Interactive.Base.Items
     [RequireComponent(typeof(XRBaseInteractable))]
     public sealed class NearOnlyGrab : MonoBehaviour, IXRHoverFilter, IXRSelectFilter
     {
+        [SerializeField, Min(0f)] private float _maxHandDistance = 0.15f;
+
         private XRBaseInteractable _interactable;
 
         public bool canProcess => isActiveAndEnabled;
@@ -30,15 +32,24 @@ namespace Gameplay.Entities.Interactive.Base.Items
 
         public bool Process(IXRSelectInteractor interactor, IXRSelectInteractable interactable) => IsNear(interactor);
 
-        private static bool IsNear(IXRInteractor interactor)
+        private bool IsNear(IXRInteractor interactor)
         {
             if (interactor is XRSocketInteractor)
+            {
                 return true;
-            if (interactor is NearFarInteractor nearFar)
-                return nearFar.selectionRegion.Value != NearFarInteractor.Region.Far;
-            if (interactor is XRRayInteractor)
-                return false;
-            return true;
+            }
+
+            Vector3 hand = interactor.GetAttachTransform(_interactable).position;
+            float maxDistanceSqr = _maxHandDistance * _maxHandDistance;
+            foreach (var collider in _interactable.colliders)
+            {
+                if ((collider.ClosestPoint(hand) - hand).sqrMagnitude <= maxDistanceSqr)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

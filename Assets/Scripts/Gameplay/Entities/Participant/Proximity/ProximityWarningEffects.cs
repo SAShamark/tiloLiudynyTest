@@ -15,6 +15,8 @@ namespace Gameplay.Entities.Participant.Proximity
         private static readonly int PulseId = Shader.PropertyToID("_Pulse");
 
         [SerializeField] private AudioSource _alarm;
+        [SerializeField, Range(0f, 1f)] private float _alarmQuietVolume = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float _alarmLoudVolume = 1f;
         [SerializeField] private Renderer _vignette;
         [SerializeField] private LineRenderer _ring;
         [SerializeField] private Color _nearbyColor = new(1f, 0.75f, 0.2f);
@@ -64,7 +66,7 @@ namespace Gameplay.Entities.Participant.Proximity
 
         private void ApplyAlarm(float intensity, bool active, bool stop)
         {
-            _alarm.volume = 0.85f * intensity;
+            _alarm.volume = Mathf.Lerp(_alarmQuietVolume, _alarmLoudVolume, intensity);
             _alarm.pitch = stop ? 1.12f : 1f;
             if (active && !_alarm.isPlaying)
             {
